@@ -14,6 +14,7 @@ Definition of the kinematics module.
 
 import numpy as np
 import math
+import icub
 
 def G(a, d, alph, theta):
 
@@ -86,3 +87,41 @@ def rotation_matrix(axis, theta):
     return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
                      [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
+
+## iCub kinematic
+
+def yarpvec_2_npvec(yarp_vec):
+    '''
+        convert a YARP vector into a 1D numpy array
+
+        params: yarp_vec    -- 1D YARP vector
+
+        return: vector      -- 1D Numpy array, result of conversion
+    '''
+    vector = np.zeros(yarp_vec.length(), dtype=np.float64)
+
+    for i in range(yarp_vec.length()):
+        vector[i] = yarp_vec.get(i)
+
+    return vector
+
+
+def wrist_position_icub(angles):
+
+    iCub_arm = icub.iCubArm("left_v2")
+    iCub_arm.releaseLink(0)
+    iCub_arm.releaseLink(1)
+    iCub_arm.releaseLink(2)
+
+    for j in range(16):
+        if j<len(angles):
+            angle = angles[j]
+        else:
+            angle = 0.0
+        iCub_arm.setAng(j+3, angle)
+
+    wrist_pos = yarpvec_2_npvec(iCub_arm.EndEffPosition())
+    print(angles, yarpvec_2_npvec(iCub_arm.getAng()), wrist_pos)
+
+    return wrist_pos

@@ -74,11 +74,18 @@ myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
 """
 
 # Initiate PF and RG patterns for the joints
-joint1 = iCubMotor.LShoulderRoll
-joint2 = iCubMotor.LElbow
-joint3 = iCubMotor.LShoulderPitch
-joint4 = iCubMotor.LShoulderYaw
-joints = [joint4, joint3, joint1, joint2]
+joint1 = iCubMotor.LShoulderPitch
+joint2 = iCubMotor.LShoulderRoll
+joint3 = iCubMotor.LShoulderYaw
+joint4 = iCubMotor.LElbow
+
+# joint1 = iCubMotor.RShoulderPitch
+# joint2 = iCubMotor.RShoulderRoll
+# joint3 = iCubMotor.RShoulderYaw
+# joint4 = iCubMotor.RElbow
+
+joints = [joint1, joint2, joint3, joint4]
+
 
 AllJointList = joints
 num_joints = 4
