@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Code for the paper: 
+Code for the paper:
 
 Baladron, J., Vitay, J., Fietzek, T. and Hamker, F. H.
 The contribution of the basal ganglia and cerebellum to motor learning: a neuro-computational approach.
@@ -79,11 +79,6 @@ joint2 = iCubMotor.LShoulderRoll
 joint3 = iCubMotor.LShoulderYaw
 joint4 = iCubMotor.LElbow
 
-# joint1 = iCubMotor.RShoulderPitch
-# joint2 = iCubMotor.RShoulderRoll
-# joint3 = iCubMotor.RShoulderYaw
-# joint4 = iCubMotor.RElbow
-
 joints = [joint1, joint2, joint3, joint4]
 
 
@@ -91,8 +86,9 @@ AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
 
-angles[iCubMotor.LShoulderPitch] = 40
-angles[iCubMotor.LElbow] = -10
+angles[iCubMotor.LShoulderPitch] = 10
+angles[iCubMotor.LShoulderRoll] = 15.
+angles[iCubMotor.LElbow] = 15.
 #angles = np.radians(angles)
 
 
@@ -149,7 +145,7 @@ goal_history, parameter_history = train_bg(num_goals)
 
 # Compute the mean reward per trial
 R_mean = np.zeros(num_goals)
-alpha = 0.33 #0.75 0.33 
+alpha = 0.33 #0.75 0.33
 
 ###################
 # Reservoir
@@ -178,23 +174,23 @@ for t in range(num_trials):
 
     # Retrieve recordings
     rec = m.get()
-    
+
     # Compute output
     output = rec['r'][-200:,-24:]
     output = np.mean(output,axis=0) * 2
 
-    
+
     if(t > -1):
         current_params += output.reshape((4,6))
- 
+
     can = np.copy(angles)
     final_pos = execute_movement(current_params,can)
     distance = np.linalg.norm(final_pos-current_goal)
 
     error = 0
-    initial_distance = np.linalg.norm(initial_position-current_goal)    
+    initial_distance = np.linalg.norm(initial_position-current_goal)
     if(t>-1):
-        error = distance 
+        error = distance
 
     dh[t] = distance
 

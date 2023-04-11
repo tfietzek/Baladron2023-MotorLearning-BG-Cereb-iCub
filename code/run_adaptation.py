@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Code for the paper: 
+Code for the paper:
 
 Baladron, J., Vitay, J., Fietzek, T. and Hamker, F. H.
 The contribution of the basal ganglia and cerebellum to motor learning: a neuro-computational approach.
@@ -19,7 +19,7 @@ num_goals = 2 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_rotation_trials = 200 # Number of rotation trials
 num_test_trials = 200 # Number of test trials
-strategy = 0 # Set to 1 to simulate a condition which includes an explicit instruction 
+strategy = 0 # Set to 1 to simulate a condition which includes an explicit instruction
 rotation = 1 # Set to 1 to simulate a conditioon in which the 45 rotation is included
 
 # Imports
@@ -74,17 +74,15 @@ joint2 = iCubMotor.LShoulderRoll
 joint3 = iCubMotor.LShoulderYaw
 joint4 = iCubMotor.LElbow
 
-# joint1 = iCubMotor.RShoulderPitch
-# joint2 = iCubMotor.RShoulderRoll
-# joint3 = iCubMotor.RShoulderYaw
-# joint4 = iCubMotor.RElbow
-
 joints = [joint1, joint2, joint3, joint4]
+
 AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
-angles[iCubMotor.LShoulderPitch] = 40
-angles[iCubMotor.LElbow] = -10
+
+angles[iCubMotor.LShoulderPitch] = 10
+angles[iCubMotor.LShoulderRoll] = 15.
+angles[iCubMotor.LElbow] = 15.
 #angles = np.radians(angles)
 
 # Update CPG initial position (reference position)
@@ -184,7 +182,7 @@ cerror = np.zeros(num_trials+num_rotation_trials+num_test_trials)
 
 # Compute the mean reward per trial
 R_mean = np.zeros(num_goals)
-alpha = 0.33 #0.75 0.33 
+alpha = 0.33 #0.75 0.33
 
 for t in range(num_trials+num_rotation_trials+num_test_trials):
 
@@ -192,8 +190,8 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     goal_id = t % num_goals
     if(t>num_trials):
         goal_id = 0
-    current_goal =  goal_history[goal_id]   
-    
+    current_goal =  goal_history[goal_id]
+
     # Reinitialize reservoir
     pop.x = Uniform(-0.01, 0.01).get_values(N)
     pop.r = np.tanh(pop.x)
@@ -222,8 +220,8 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
             current_params = np.copy(parameter_history[2])
 
     if(t>-1):
-        current_params+=output.reshape((4,6))        
-    
+        current_params+=output.reshape((4,6))
+
     s = 0
     pf = ''
     if(t>(num_trials-3)):
@@ -234,7 +232,7 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     #Turn this on for simulations with perturbation
     if(rotation==1):
         if(t>num_trials and t<(num_trials+num_rotation_trials) ):
-            final_pos = np.dot(rot,final_pos) 
+            final_pos = np.dot(rot,final_pos)
 
 
     distance = np.linalg.norm(final_pos-current_goal)
@@ -242,8 +240,8 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     # Activate this for simulations with strategy
     if(strategy==1):
         if(t>(num_trials) and t<(num_trials+num_rotation_trials)):
-            distance = np.linalg.norm(final_pos-goal_history[2]) 
-    error = distance 
+            distance = np.linalg.norm(final_pos-goal_history[2])
+    error = distance
 
     # Plasticity
     if(t>10):

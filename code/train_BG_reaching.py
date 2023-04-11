@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Code for the paper: 
+Code for the paper:
 
 Baladron, J., Vitay, J., Fietzek, T. and Hamker, F. H.
 The contribution of the basal ganglia and cerebellum to motor learning: a neuro-computational approach.
@@ -59,18 +59,20 @@ myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
     LAnklePitch, LAnkleRoll
 """
 # Initiate PF and RG patterns for the joints
-joint1 = iCubMotor.LShoulderRoll
-joint2 = iCubMotor.LElbow
-joint3 = iCubMotor.LShoulderPitch
-joint4 = iCubMotor.LShoulderYaw
-joints = [joint4,joint3,joint1,joint2]
+joint1 = iCubMotor.LShoulderPitch
+joint2 = iCubMotor.LShoulderRoll
+joint3 = iCubMotor.LShoulderYaw
+joint4 = iCubMotor.LElbow
+
+joints = [joint1, joint2, joint3, joint4]
+
 AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
 
-
-angles[iCubMotor.LShoulderPitch] = 40
-angles[iCubMotor.LElbow] = -10
+angles[iCubMotor.LShoulderPitch] = 10
+angles[iCubMotor.LShoulderRoll] = 15.
+angles[iCubMotor.LElbow] = 15.
 #angles = np.radians(angles)
 
 
@@ -91,8 +93,7 @@ angles = np.zeros(params.number_cpg)
 angles[iCubMotor.LShoulderPitch] = 40
 angles[iCubMotor.LElbow] = -10
 
-initial_position = wrist_position(np.radians(angles[joints]))[0:3]
-
+initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 
 def gaussian_input(x,mu,sig):
              return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
@@ -139,10 +140,31 @@ def execute_movement(pms,current_angles):
 
 
     mc_a = np.array(iCubMotor.MotorCommand[:])
-    final_pos = wrist_position(mc_a[joints])[0:3]
+    final_pos = wrist_position_icub(mc_a[joints])[0:3]
     return final_pos
 
+clip = lambda x, l, u: l if x < l else u if x > u else x
+def random_goal2_iCub(initial_position):
 
+    counter = 0
+    nvd = 0
+    goal = [0,0,0]
+    #current_angles = np.copy(angles)
+    current_angles = np.zeros(params.number_cpg)
+    while(nvd<0.5): #(nvd<0.15): 0.15 or 0.5
+        current_angles[iCubMotor.LShoulderPitch] = clip(angles[iCubMotor.LShoulderPitch] + np.random.normal(0,20), -95., 10.)
+        current_angles[iCubMotor.LShoulderRoll] = clip(angles[iCubMotor.LShoulderRoll] + np.random.normal(0,20), 0., 160.8)
+        current_angles[iCubMotor.LShoulderYaw] = clip(angles[iCubMotor.LShoulderYaw] + np.random.normal(0,20), -37., 80.)
+        current_angles[iCubMotor.LElbow] =  clip(angles[iCubMotor.LElbow] + np.random.normal(0,20), 15.5, 106.)
+        current_angles = np.radians(current_angles)
+        goal = wrist_position_icub(current_angles[joints])[0:3]
+        nvd = np.linalg.norm(goal-initial_position)
+        #counter+=1
+
+    if(counter<100):
+        return goal
+    else:
+        return [0,0,0]
 
 def random_goal2(initial_position):
 
@@ -188,7 +210,7 @@ def random_goal(initial_position):
         return goal
     else:
         return [0,0,0]
-    
+
 
 def train_bg(nt):
 
@@ -198,14 +220,14 @@ def train_bg(nt):
     error_history = np.zeros(num_trials_test+nt)
 
 
-    counter = 0 
+    counter = 0
     goals = np.zeros((nt,3))
     parameter_history = np.zeros((nt,4,6))
     distance_history = np.zeros(nt)
 
     for trial in range(num_trials_test+nt):
         print('trial '+str(trial))
-        
+
 
         RG_Pat1.noise = 0.0
         RG_Pat2.noise = 0.0
@@ -244,7 +266,7 @@ def train_bg(nt):
         VA_putamen.r = 0.0
 
         Cortical_input.baseline=0.0
-        
+
 
         #inter trial
         simulate(700) #650
@@ -254,14 +276,14 @@ def train_bg(nt):
         while(np.array_equal(goal,[0,0,0])):
 
             current_angles = np.copy(angles)
-            initial_position = wrist_position(np.radians(current_angles[joints]))[0:3]
-            goal = random_goal2(initial_position)
-            
+            initial_position = wrist_position_icub(np.radians(current_angles[joints]))[0:3]
+            goal = random_goal2_iCub(initial_position)
+
 
         neuron_update(Cortical_input,goal, 10.0, 0.5) #0.2,1 // 0.005,1.0 IN ORIGINAL
         simulate(200)
-        
-        
+
+
         ran_prim = 0
         if(np.max(PM.r)<0.05):
             ran_prim = np.random.randint(120)
@@ -278,7 +300,7 @@ def train_bg(nt):
                 counter+=1
 
 
-        pms = np.zeros((4,6)) 
+        pms = np.zeros((4,6))
         for j in range(4):
             RG1_joint = 5+parameter_readout(RG_Pat1[j,:],0,5)
             RG2_joint = 5+parameter_readout(RG_Pat2[j,:],0,5)
@@ -289,11 +311,11 @@ def train_bg(nt):
             PF1_joint = 0.001+parameter_readout(PF_Pat1[j,:],0,2.0)
             PF2_joint = 0.001+parameter_readout(PF_Pat2[j,:],0,2.0)
 
-            
+
             pms[j] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
 
-                
+
         #execute a movement
         final_pos = execute_movement(pms,current_angles)
         vel_final = final_pos-initial_position
@@ -307,7 +329,7 @@ def train_bg(nt):
         print(final_pos)
 
         if(nvf>0.3): #(nvf>0.3):
-            reward.baseline = 1.0 
+            reward.baseline = 1.0
             SNc_put.firing = 1.0
             simulate(100)
             SNc_put.firing = 0.0
@@ -321,7 +343,7 @@ def train_bg(nt):
 
 
     np.save('error_history_bg.npy',error_history)
-    
+
     return goals, parameter_history
 
 
@@ -382,7 +404,7 @@ def parameters_per_goal(goal):
     print(str(ran_prim)+' '+str(goal))
 
 
-    pms = np.zeros((4,6)) 
+    pms = np.zeros((4,6))
     for j in range(4):
             RG1_joint = 5+parameter_readout(RG_Pat1[j,:],0,5)
             RG2_joint = 5+parameter_readout(RG_Pat2[j,:],0,5)
