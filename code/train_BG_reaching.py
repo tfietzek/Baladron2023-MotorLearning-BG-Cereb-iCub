@@ -295,7 +295,7 @@ def train_bg(nt):
             Intermediate[ran_prim].baseline = 1.0
             PM[ran_prim].baseline = 0.5
             simulate(150)
-            if(counter<2):
+            if(counter<nt):
                 goals[counter] = goal
                 counter+=1
 
@@ -342,7 +342,7 @@ def train_bg(nt):
         error_history[trial] = np.linalg.norm(final_pos-goal)
 
 
-    np.save('error_history_bg.npy',error_history)
+    np.save('error_history_bg_reach_' + str(nt) + '.npy',error_history)
 
     return goals, parameter_history
 

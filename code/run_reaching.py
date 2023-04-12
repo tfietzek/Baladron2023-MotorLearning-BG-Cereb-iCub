@@ -211,5 +211,5 @@ for t in range(num_trials):
     error_history[t] = error
 
 
-np.save('error.npy', error_history)
+np.save('error_' + str(num_goals) + '.npy', error_history)
 

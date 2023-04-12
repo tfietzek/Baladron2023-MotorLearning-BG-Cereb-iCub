@@ -266,7 +266,7 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     angle_history3[t] = np.degrees( angle_in_plane(rotated_proj,current_goal,perpendicular_normalized) )
     cerror[t] = error
 
-np.save('angle3.npy', angle_history3) # Directional error
-np.save('cerror.npy', cerror) # Aiming error
+np.save('angle3_' + str(num_goals) + '.npy', angle_history3) # Directional error
+np.save('cerror_' + str(num_goals) + '.npy', cerror) # Aiming error
 
 

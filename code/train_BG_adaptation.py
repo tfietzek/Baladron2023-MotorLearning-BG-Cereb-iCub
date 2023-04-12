@@ -364,7 +364,7 @@ def train_bg(nt):
             parameter_history[trial-num_trials_test] = pms
             distance_history[trial-num_trials_test] = np.linalg.norm(final_pos-goal)
 
-    np.save('error_history_bg.npy',error_history)
+    np.save('error_history_bg_adapt_' + str(nt) + '.npy',error_history)
 
 
     return goals,parameter_history
