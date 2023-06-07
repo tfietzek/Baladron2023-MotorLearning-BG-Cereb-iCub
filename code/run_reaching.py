@@ -15,7 +15,7 @@ Script for the reaching task.
 """
 
 # Parameters
-num_goals = 2 # Number of goals. 2 or 8 in the manuscript
+num_goals = 8 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_trials_test = 100 # Number of test trials with the reservoir
 
@@ -25,10 +25,11 @@ import importlib
 import sys
 import time
 import numpy as np
+from pathlib import Path
 
 # ANNarchy
 from ANNarchy import *
-setup(num_threads=2)
+# setup(num_threads=4)
 
 # Model
 from reservoir import *
@@ -74,10 +75,10 @@ myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
 """
 
 # Initiate PF and RG patterns for the joints
-joint1 = iCubMotor.LShoulderPitch
-joint2 = iCubMotor.LShoulderRoll
-joint3 = iCubMotor.LShoulderYaw
-joint4 = iCubMotor.LElbow
+joint1 = iCubMotor.RShoulderPitch
+joint2 = iCubMotor.RShoulderRoll
+joint3 = iCubMotor.RShoulderYaw
+joint4 = iCubMotor.RElbow
 
 joints = [joint1, joint2, joint3, joint4]
 
@@ -86,9 +87,9 @@ AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
 
-angles[iCubMotor.LShoulderPitch] = 10
-angles[iCubMotor.LShoulderRoll] = 15.
-angles[iCubMotor.LElbow] = 15.
+angles[iCubMotor.RShoulderPitch] = 10
+angles[iCubMotor.RShoulderRoll] = 15.
+angles[iCubMotor.RElbow] = 15.
 #angles = np.radians(angles)
 
 
@@ -151,11 +152,17 @@ alpha = 0.33 #0.75 0.33
 # Reservoir
 ###################
 print('Training reservoir...')
+parameter = []
+goal_per_trial = []
+fin_pos_trials = []
+init_pos_trials = []
+init_angles = []
 for t in range(num_trials):
 
     # Select the goal
     current_goal =  goal_history[t%num_goals]
     current_params =  np.copy(parameters_per_goal(current_goal))
+    goal_per_trial.append(current_goal)
 
     # Reinitialize the reservoir
     pop.x = Uniform(-0.01, 0.01).get_values(N)
@@ -184,8 +191,13 @@ for t in range(num_trials):
         current_params += output.reshape((4,6))
 
     can = np.copy(angles)
+    parameter.append(current_params)
     final_pos = execute_movement(current_params,can)
     distance = np.linalg.norm(final_pos-current_goal)
+
+    fin_pos_trials.append(final_pos)
+    init_pos_trials.append(initial_position)
+    init_angles.append(can)
 
     error = 0
     initial_distance = np.linalg.norm(initial_position-current_goal)
@@ -211,5 +223,25 @@ for t in range(num_trials):
     error_history[t] = error
 
 
-np.save('error_' + str(num_goals) + '.npy', error_history)
 
+## Save network data
+folder_net = './trained_network_g' + str(num_goals) + '_reach_1200/'
+Path(folder_net).mkdir(parents=True, exist_ok=True)
+
+np.save(folder_net + 'error_' + str(num_goals) + '.npy', error_history)
+
+
+# save goals
+np.save(folder_net + 'parameter_' + str(num_goals) + '.npy' ,parameter)
+np.save(folder_net + 'goals.npy', goal_history)
+np.save(folder_net + 'goal_per_trial.npy', goal_per_trial)
+np.save(folder_net + 'fin_pos_trials.npy', fin_pos_trials)
+np.save(folder_net + 'init_pos_trials.npy', init_pos_trials)
+np.save(folder_net + 'init_angles_trials.npy', init_angles)
+
+
+
+
+# save network connectivity
+for proj in projections():
+    proj.save_connectivity(filename=folder_net + 'weights_' + proj.name + '.npz')

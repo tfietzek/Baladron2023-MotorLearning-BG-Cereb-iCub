@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Code for the paper: 
+Code for the paper:
 
 Baladron, J., Vitay, J., Fietzek, T. and Hamker, F. H.
 The contribution of the basal ganglia and cerebellum to motor learning: a neuro-computational approach.
@@ -20,19 +20,19 @@ def G(a, d, alph, theta):
 
     t1 = np.array([ [np.cos(theta), - np.sin(theta), 0,  0],[np.sin(theta), np.cos(theta), 0,  0],[0, 0, 1, 0],[0, 0, 0, 1]])
     bt = np.c_[ np.identity(3), np.array([0,0,d])]
-    t2 = np.vstack([bt,[0,0,0,1]]) 
-    
+    t2 = np.vstack([bt,[0,0,0,1]])
+
     ct =  np.c_[ np.identity(3), np.array([a,0,0])]
     t3 = np.vstack([ct,[0,0,0,1]])
-    
+
     t4 = np.array([[1, 0, 0, 0],[ 0, np.cos(alph), -np.sin(alph), 0],[ 0, np.sin(alph), np.cos(alph), 0],[ 0, 0, 0, 1]])
- 
+
     return np.matmul(np.matmul(np.matmul(t1,t2),t3),t4)
-    
-def wrist_position(a):  
-    L1 = 0.05 
-    L2 = 0.22 
-    L3 = 0.16 
+
+def wrist_position(a):
+    L1 = 0.05
+    L2 = 0.22
+    L3 = 0.16
 
     theta2 = a[0] #np.radians(a1)#Shoulder yaw
     theta1 = a[1] #np.radians(a2)#Shoulder pitch
@@ -48,11 +48,11 @@ def wrist_position(a):
     G_03 = np.matmul(G_02,G_23)
     G_04 = np.matmul(G_03,G_34)
     return G_04.dot(np.array([0, 0, 0, 1]).T)
-    
-def wrist_position2(a1,a2,a3,a4):  
-    L1 = 0.05 
-    L2 = 0.22 
-    L3 = 0.16 
+
+def wrist_position2(a1,a2,a3,a4):
+    L1 = 0.05
+    L2 = 0.22
+    L3 = 0.16
 
     theta2 = np.radians(a1)#Shoulder yaw
     theta1 = np.radians(a2)#Shoulder pitch
@@ -109,7 +109,7 @@ def yarpvec_2_npvec(yarp_vec):
 
 def wrist_position_icub(angles):
 
-    iCub_arm = icub.iCubArm("left_v2")
+    iCub_arm = icub.iCubArm("right_v2")
     iCub_arm.releaseLink(0)
     iCub_arm.releaseLink(1)
     iCub_arm.releaseLink(2)
@@ -122,6 +122,6 @@ def wrist_position_icub(angles):
         iCub_arm.setAng(j+3, angle)
 
     wrist_pos = yarpvec_2_npvec(iCub_arm.EndEffPosition())
-    print(angles, yarpvec_2_npvec(iCub_arm.getAng()), wrist_pos)
+    # print(angles, yarpvec_2_npvec(iCub_arm.getAng()), wrist_pos)
 
     return wrist_pos

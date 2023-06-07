@@ -135,3 +135,7 @@ annarchy/
 MyiCub*
 iCubMotor*
 *.pkl
+
+# results
+*.npy
+*.npz

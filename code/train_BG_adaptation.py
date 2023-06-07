@@ -72,10 +72,10 @@ myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
     LAnklePitch, LAnkleRoll
 """
 # Initiate PF and RG patterns for the joints
-joint1 = iCubMotor.LShoulderPitch
-joint2 = iCubMotor.LShoulderRoll
-joint3 = iCubMotor.LShoulderYaw
-joint4 = iCubMotor.LElbow
+joint1 = iCubMotor.RShoulderPitch
+joint2 = iCubMotor.RShoulderRoll
+joint3 = iCubMotor.RShoulderYaw
+joint4 = iCubMotor.RElbow
 
 joints = [joint1, joint2, joint3, joint4]
 
@@ -83,9 +83,9 @@ AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
 
-angles[iCubMotor.LShoulderPitch] = 10
-angles[iCubMotor.LShoulderRoll] = 15.
-angles[iCubMotor.LElbow] = 15.
+angles[iCubMotor.RShoulderPitch] = 10
+angles[iCubMotor.RShoulderRoll] = 15.
+angles[iCubMotor.RElbow] = 15.
 #angles = np.radians(angles)
 
 
@@ -127,8 +127,9 @@ num_trials = 0 #1001#1200
 angles = np.zeros(params.number_cpg)
 
 
-angles[iCubMotor.LShoulderPitch] = 40
-angles[iCubMotor.LElbow] = -10
+angles[iCubMotor.RShoulderPitch] = 10
+angles[iCubMotor.RShoulderRoll] = 15.
+angles[iCubMotor.RElbow] = 15.
 
 initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 
@@ -190,10 +191,10 @@ def random_goal_icub(initial_position):
     goal = [0,0,0]
     current_angles = np.copy(angles)
     while(nvd<0.5):#(nvd<0.15): 0.15 or 0.5
-        current_angles[iCubMotor.LShoulderPitch] = clip(angles[iCubMotor.LShoulderPitch] + np.random.normal(0,20), -95., 10.)
-        current_angles[iCubMotor.LShoulderRoll] = clip(angles[iCubMotor.LShoulderRoll] + np.random.normal(0,20), 0., 160.8)
-        current_angles[iCubMotor.LShoulderYaw] = clip(angles[iCubMotor.LShoulderYaw] + np.random.normal(0,20), -37., 80.)
-        current_angles[iCubMotor.LElbow] =  clip(angles[iCubMotor.LElbow] + np.random.normal(0,20), 15.5, 106.)
+        current_angles[iCubMotor.RShoulderPitch] = clip(angles[iCubMotor.RShoulderPitch] + np.random.normal(0,20), -95., 10.)
+        current_angles[iCubMotor.RShoulderRoll] = clip(angles[iCubMotor.RShoulderRoll] + np.random.normal(0,20), 0., 160.8)
+        current_angles[iCubMotor.RShoulderYaw] = clip(angles[iCubMotor.RShoulderYaw] + np.random.normal(0,20), -37., 80.)
+        current_angles[iCubMotor.RElbow] =  clip(angles[iCubMotor.RElbow] + np.random.normal(0,20), 15.5, 106.)
         current_angles = np.radians(current_angles)
         goal = wrist_position_icub(current_angles[joints])[0:3]
         nvd = np.linalg.norm(goal-initial_position)
