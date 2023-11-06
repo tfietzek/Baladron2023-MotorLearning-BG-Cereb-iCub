@@ -15,7 +15,7 @@ Script for the reaching task.
 """
 
 # Parameters
-num_goals = 8 # Number of goals. 2 or 8 in the manuscript
+num_goals = 2 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_trials_test = 100 # Number of test trials with the reservoir
 
@@ -29,7 +29,7 @@ from pathlib import Path
 
 # ANNarchy
 from ANNarchy import *
-# setup(num_threads=4)
+setup(num_threads=2)
 
 # Model
 from reservoir import *
@@ -42,8 +42,15 @@ from CPG_lib.MLMPCPG.MLMPCPG import *
 from CPG_lib.MLMPCPG.myPloting import *
 from CPG_lib.MLMPCPG.SetTiming import *
 
+
+# Prepare save directory
+folder_net = './results/network_g' + str(num_goals) + '_run'
+if len(sys.argv) > 1:
+    folder_net += '_' + sys.argv[1]
+Path(folder_net).mkdir(parents=True, exist_ok=True)
+
 # Compile the network
-compile()
+compile(directory="./annarchy/run_" + sys.argv[1])
 
 # Initialize robot connection
 sys.path.append('../../CPG_lib/MLMPCPG')
@@ -225,23 +232,16 @@ for t in range(num_trials):
 
 
 ## Save network data
-folder_net = './trained_network_g' + str(num_goals) + '_reach_1200/'
-Path(folder_net).mkdir(parents=True, exist_ok=True)
+np.save(folder_net + '/error_' + str(num_goals) + '.npy', error_history)
 
-np.save(folder_net + 'error_' + str(num_goals) + '.npy', error_history)
+# Save data
+np.save(folder_net + '/parameter_' + str(num_goals) + '.npy' ,parameter)
+np.save(folder_net + '/goals.npy', goal_history)
+np.save(folder_net + '/goal_per_trial.npy', goal_per_trial)
+# np.save(folder_net + '/fin_pos_trials.npy', fin_pos_trials)
+# np.save(folder_net + '/init_pos_trials.npy', init_pos_trials)
+# np.save(folder_net + '/init_angles_trials.npy', init_angles)
 
-
-# save goals
-np.save(folder_net + 'parameter_' + str(num_goals) + '.npy' ,parameter)
-np.save(folder_net + 'goals.npy', goal_history)
-np.save(folder_net + 'goal_per_trial.npy', goal_per_trial)
-np.save(folder_net + 'fin_pos_trials.npy', fin_pos_trials)
-np.save(folder_net + 'init_pos_trials.npy', init_pos_trials)
-np.save(folder_net + 'init_angles_trials.npy', init_angles)
-
-
-
-
-# save network connectivity
-for proj in projections():
-    proj.save_connectivity(filename=folder_net + 'weights_' + proj.name + '.npz')
+# # Save network connectivity
+# for proj in projections():
+#     proj.save_connectivity(filename=folder_net + '/weights_' + proj.name + '.npz')

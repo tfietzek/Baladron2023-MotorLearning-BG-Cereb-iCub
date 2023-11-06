@@ -207,7 +207,7 @@ def random_goal(initial_position):
 
 def train_bg(nt):
 
-    num_trials_test = 1200
+    num_trials_test = 400
 
 
     error_history = np.zeros(num_trials_test+nt)

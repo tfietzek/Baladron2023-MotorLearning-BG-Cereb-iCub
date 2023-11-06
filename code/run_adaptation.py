@@ -15,7 +15,7 @@ Script for the adaptation task.
 """
 
 # Parameters
-num_goals = 8 # Number of goals. 2 or 8 in the manuscript
+num_goals = 2 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_rotation_trials = 200 # Number of rotation trials
 num_test_trials = 200 # Number of test trials
@@ -277,6 +277,6 @@ Path(folder_net).mkdir(parents=True, exist_ok=True)
 # save goals
 np.save(folder_net + 'goals.npy', goal_history)
 
-# save network connectivity
-for proj in projections():
-    proj.save_connectivity(filename=folder_net + 'weights_' + proj.name + '.npz')
+# # save network connectivity
+# for proj in projections():
+#     proj.save_connectivity(filename=folder_net + 'weights_' + proj.name + '.npz')
