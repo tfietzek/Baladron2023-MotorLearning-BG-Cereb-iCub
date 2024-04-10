@@ -144,11 +144,33 @@ def random_goal2_iCub(initial_position):
     goal = [0,0,0]
     #current_angles = np.copy(angles)
     current_angles = np.zeros(params.number_cpg)
-    while(nvd<0.15): #(nvd<0.15): 0.15 or 0.5
-        current_angles[iCubMotor.RShoulderPitch] = clip(angles[iCubMotor.RShoulderPitch] + np.random.normal(0,30), -95., 10.)
+    while(nvd<0.5): #(nvd<0.15): 0.15 or 0.5
+        current_angles[iCubMotor.RShoulderPitch] = clip(angles[iCubMotor.RShoulderPitch] + np.random.normal(0,40), -95., 10.)
         current_angles[iCubMotor.RShoulderRoll] = clip(angles[iCubMotor.RShoulderRoll] + np.random.normal(0,40), 0., 160.8)
         current_angles[iCubMotor.RShoulderYaw] = clip(angles[iCubMotor.RShoulderYaw] + np.random.normal(0,30), -37., 80.)
         current_angles[iCubMotor.RElbow] =  clip(angles[iCubMotor.RElbow] + np.random.normal(0,30), 15.5, 106.)
+        current_angles = np.radians(current_angles)
+        goal = wrist_position_icub(current_angles[joints])[0:3]
+        nvd = np.linalg.norm(goal-initial_position)
+        #counter+=1
+
+    if(counter<100):
+        return goal
+    else:
+        return [0,0,0]
+
+def random_goal_iCub(initial_position):
+
+    counter = 0
+    nvd = 0
+    goal = [0,0,0]
+    #current_angles = np.copy(angles)
+    current_angles = np.zeros(params.number_cpg)
+    while(nvd<0.5): #(nvd<0.15): 0.15 or 0.5
+        current_angles[iCubMotor.RShoulderPitch] = np.random.uniform(-95., 10.)
+        current_angles[iCubMotor.RShoulderRoll] = np.random.uniform(0., 160.8)
+        current_angles[iCubMotor.RShoulderYaw] = np.random.uniform(-37., 80.)
+        current_angles[iCubMotor.RElbow] =  np.random.uniform(15.5, 106.)
         current_angles = np.radians(current_angles)
         goal = wrist_position_icub(current_angles[joints])[0:3]
         nvd = np.linalg.norm(goal-initial_position)

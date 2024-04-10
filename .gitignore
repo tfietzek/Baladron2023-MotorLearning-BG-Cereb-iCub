@@ -136,6 +136,10 @@ MyiCub*
 iCubMotor*
 *.pkl
 
+# tests
+test_*.py
+
 # results
 *.npy
 *.npz
+results/

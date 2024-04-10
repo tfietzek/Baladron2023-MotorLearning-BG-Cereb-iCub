@@ -27,10 +27,19 @@ import sys
 import time
 import numpy as np
 
-# initialize robot connection
+#initialize robot connection
 sys.path.append('../../CPG_lib/MLMPCPG')
 sys.path.append('../../CPG_lib/icubPlot')
 iCubMotor = importlib.import_module(params.iCub_joint_names)
+
+"""
+    NeckPitch, NeckRoll, NeckYaw, EyesTilt, EyesVersion, EyesVergence, TorsoYaw, TorsoRoll, TorsoPitch, RShoulderPitch, RShoulderRoll, \
+    RShoulderYaw, RElbow, RWristProsup, RWristPitch, RWristYaw, RHandFinger, RThumbOppose, RThumbProximal, RThumbDistal, RIndexProximal, \
+    RIndexDistal, RMiddleProximal, RMiddleDistal, RPinky, RHipPitch, RHipRoll, RHipYaw, RKnee, RAnklePitch, RAnkleRoll, \
+    LShoulderPitch, LShoulderRoll, LShoulderYaw, LElbow, LWristProsup, LWristPitch, LWristYaw, LHandFinger, LThumbOppose, LThumbProximal, \
+    LThumbDistal, LIndexProximal, LIndexDistal, LMiddleProximal, LMiddleDistal, LPinky, LHipPitch, LHipRoll, LHipYaw, LKnee, \
+    LAnklePitch, LAnkleRoll
+"""
 
 global All_Command
 global All_Joints_Sensor
@@ -45,14 +54,6 @@ myCont = fnewMLMPcpg(params.number_cpg)
 # Instantiate the CPG list with iCub robot data
 myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
 
-"""
-    NeckPitch, NeckRoll, NeckYaw, EyesTilt, EyesVersion, EyesVergence, TorsoYaw, TorsoRoll, TorsoPitch, RShoulderPitch, RShoulderRoll, \
-    RShoulderYaw, RElbow, RWristProsup, RWristPitch, RWristYaw, RHandFinger, RThumbOppose, RThumbProximal, RThumbDistal, RIndexProximal, \
-    RIndexDistal, RMiddleProximal, RMiddleDistal, RPinky, RHipPitch, RHipRoll, RHipYaw, RKnee, RAnklePitch, RAnkleRoll, \
-    LShoulderPitch, LShoulderRoll, LShoulderYaw, LElbow, LWristProsup, LWristPitch, LWristYaw, LHandFinger, LThumbOppose, LThumbProximal, \
-    LThumbDistal, LIndexProximal, LIndexDistal, LMiddleProximal, LMiddleDistal, LPinky, LHipPitch, LHipRoll, LHipYaw, LKnee, \
-    LAnklePitch, LAnkleRoll
-"""
 # Initiate PF and RG patterns for the joints
 joint1 = iCubMotor.RShoulderPitch
 joint2 = iCubMotor.RShoulderRoll
@@ -403,31 +404,6 @@ def prim_profiles():
             parameter_history[a] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
         final_pos = execute_movement(parameter_history[a])
-
-        '''
-        #execute a movement
-        for i in AllJointList:
-                myCont[i].fUpdateLocomotionNetwork(myT, current_angles[i])
-        for idx, controller in enumerate(myCont):
-                iCubMotor.MotorCommand[idx] = controller.joint.joint_motor_signal
-        #iCub_robot.iCub_set_angles(iCubMotor.MotorCommand)
-        All_Command.append(iCubMotor.MotorCommand[:])
-        All_Joints_Sensor.append(current_angles)
-        I=0
-        while I<120:
-            I+=1
-            for i in AllJointList:
-                myCont[i].fUpdateLocomotionNetwork(myT, current_angles[i])
-            for idx, controller in enumerate(myCont):
-                iCubMotor.MotorCommand[idx] = controller.joint.joint_motor_signal
-            #iCub_robot.iCub_set_angles(iCubMotor.MotorCommand)
-            All_Command.append(iCubMotor.MotorCommand[:])
-            All_Joints_Sensor.append(current_angles)
-
-        #compute obtained velocity
-        mc_a = np.array(iCubMotor.MotorCommand[:])
-        final_pos = wrist_position_icub(mc_a[joints])[0:3]
-        '''
 
         vel_a = final_pos-initial_pos
 
