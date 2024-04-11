@@ -2,12 +2,12 @@
 from subprocess import Popen
 import sys
 
-num_trials = 40
+num_trials = 32
 
 prcs = []
-max_prcs_count = 6
+max_prcs_count = 4
 # script = 'run_reaching.py'
-script = 'run_adaptation.py'
+script = 'run_adaptation_iCub.py'
 
 try:
     idx = 0

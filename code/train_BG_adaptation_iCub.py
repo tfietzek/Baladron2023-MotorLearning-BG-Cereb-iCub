@@ -82,33 +82,7 @@ for i in range(0, len(myCont)):
     myCont[i].fUpdateLocomotionNetwork(myT, angles[i])
 
 
-'''
-for ff in range(num_joints):
-    VelRG_Pat1[ff].disable_learning()
-    VelRG_Pat2[ff].disable_learning()
-    VelRG_Pat3[ff].disable_learning()
-    VelRG_Pat4[ff].disable_learning()
-    VelPF_Pat1[ff].disable_learning()
-    VelPF_Pat2[ff].disable_learning()
-    VelInjCurr[ff].disable_learning()
-#VelInter.disable_learning()
-
-#Hand_velocity.disable()
-
-
-RG_Pat1.factor_exc = 1.0
-RG_Pat2.factor_exc = 1.0
-RG_Pat3.factor_exc = 1.0
-RG_Pat4.factor_exc = 1.0
-PF_Pat1.factor_exc = 1.0
-PF_Pat2.factor_exc = 1.0
-Inj_Curr.factor_exc = 1.0
-
-num_trials = 0 #1001#1200
-'''
-
 angles = np.zeros(params.number_cpg)
-
 
 angles[iCubMotor.RShoulderPitch] = 10
 angles[iCubMotor.RShoulderRoll] = 15.
@@ -116,12 +90,9 @@ angles[iCubMotor.RElbow] = 15.
 
 initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 
-#VelInter.transmission = False
 
 def gaussian_input(x,mu,sig):
              return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
-
-
 
 def execute_movement(pms,s=0,pf=''):
     myCont = fnewMLMPcpg(params.number_cpg)
@@ -211,7 +182,6 @@ def random_goal(initial_position):
         nvd = np.linalg.norm(goal-initial_position)
     return goal
 
-
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about
@@ -228,16 +198,11 @@ def rotation_matrix(axis, theta):
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-
-
 def train_bg(nt):
 
     num_trials_test = 450
 
-
-
     error_history = np.zeros(num_trials_test+nt+1)
-
     goals = np.zeros((nt+1,3))
     parameter_history = np.zeros((nt+1,4,6))
     distance_history = np.zeros(nt+1)
@@ -285,21 +250,8 @@ def train_bg(nt):
         simulate(650)
 
         #test random angles instead of position
-        nvd = 0.0
-        vel_d = [0,0,0]
-        goal = np.zeros(3)
-
-
         goal = random_goal_icub2(initial_position)
 
-        if(trial==(num_trials_test+nt)):
-            perpendicular_vector = np.cross(goals[0],goals[1])
-            rot_inv = rotation_matrix( perpendicular_vector  ,np.radians(45))
-            goal = np.dot(rot_inv,goals[0])
-
-        vel_d = (goal-initial_position)
-
-        vel_d = vel_d
         neuron_update(Cortical_input,goal,10.0,0.5)
         simulate(200)
 
@@ -352,7 +304,6 @@ def train_bg(nt):
 
     return goals,parameter_history
 
-
 def prim_profiles():
     counter=0
     num_actions = 120
@@ -373,7 +324,6 @@ def prim_profiles():
 
         simulate(100)
 
-
         current_angles = np.copy(angles)
         current_angles = np.radians(current_angles)
         myCont = fnewMLMPcpg(params.number_cpg)
@@ -386,9 +336,8 @@ def prim_profiles():
 
         initial_pos = wrist_position_icub(current_angles[joints])[0:3]
 
-        Intermediate[a].baseline = 1.0 #[a]
+        Intermediate[a].baseline = 1.0
         simulate(100)
-
 
         for j in range(4):
             RG1_joint = 5+parameter_readout(RG_Pat1[j,:],0,5)
@@ -407,19 +356,14 @@ def prim_profiles():
 
         vel_a = final_pos-initial_pos
 
-        #print(initial_pos)
-        #print(final_pos)
-
-        vel_a = final_pos-initial_pos
         nvel_a = np.linalg.norm(vel_a)
         if(nvel_a<0.3): #1e-3):
             vel_a = [0.0,0.0,0.0]
             counter+=1
         #else:
         #    vel_a = vel_a/nvel_a
-        vel_history[a] = final_pos#vel_a
+        vel_history[a] = final_pos
         #print(nvel_a)
-    #print(counter)
 
     #print(vel_history)
     #np.save(sim+'vel_history.npy',vel_history)
@@ -427,13 +371,9 @@ def prim_profiles():
 
 def parameters_per_goal(goal):
 
-
     #print('max w '+str(np.max(StrD1SNr_putamen.w)))
 
-    pars = np.zeros((4,6))
-
     #pop.disable()
-
     #Hand_velocity.baseline = 0.0
     #Hand_velocity.r = 0.0
     RG_Pat1.noise = 0.0
@@ -471,14 +411,7 @@ def parameters_per_goal(goal):
 
     #inter trial
     simulate(650)
-
-
-    nvd = np.linalg.norm(goal)
-    vel_d = goal
-
-
     neuron_update(StrD1_putamen, goal, 1.0, 1.0) #0.2,1 // 0.005,1.0 IN ORIGINAL
-
     simulate(200)
 
     primitive = -1
@@ -492,7 +425,6 @@ def parameters_per_goal(goal):
             primitive = np.argmax(PM.r)
             #print(np.argmax(PM.r))
             simulate(150)
-
 
     pms = np.zeros((4,6))
     for j in range(4):
@@ -508,9 +440,4 @@ def parameters_per_goal(goal):
 
         pms[j] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
-
-
-    return pms #primitive
-
-
-
+    return pms

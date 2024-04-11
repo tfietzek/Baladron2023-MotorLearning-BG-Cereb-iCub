@@ -2,16 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Code for the paper:
 
-Baladron, J., Vitay, J., Fietzek, T. and Hamker, F. H.
-The contribution of the basal ganglia and cerebellum to motor learning: a neuro-computational approach.
 
-Copyright the Authors (License MIT)
+Script for the iCub adaptation task.
 
-Script for the adaptation task.
-
-> python run_adaptation.py
+> python run_adaptation_iCub.py
 """
 
 # Parameters
@@ -19,8 +14,7 @@ num_goals = 2 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_rotation_trials = 200 # Number of rotation trials
 num_test_trials = 200 # Number of test trials
-strategy = 1 # Set to 1 to simulate a condition which includes an explicit instruction
-rotation = 0 # Set to 1 to simulate a conditioon in which the 45 rotation is included
+rotation = 1 # Set to 1 to simulate a conditioon in which the 45 rotation is included
 
 # Imports
 import importlib
@@ -33,8 +27,7 @@ from pathlib import Path
 
 # Import ANNarchy
 from ANNarchy import *
-setup(num_threads=6)
-
+setup(num_threads=4)
 
 # Model
 from reservoir import *
@@ -47,21 +40,55 @@ from CPG_lib.MLMPCPG.MLMPCPG import *
 from CPG_lib.MLMPCPG.myPloting import *
 from CPG_lib.MLMPCPG.SetTiming import *
 
-sim_id = sys.argv[1]
-
-## Save network data
-folder_net = f'./results/network_g{num_goals}_adapt_{rotation}_{strategy}_id_{sim_id}/'
-Path(folder_net).mkdir(parents=True, exist_ok=False)
-
-# Compile the network
-compile(directory=f"annarchy/adapt_{rotation}_{strategy}_{sim_id}")
-
 # Initialize robot connection
 sys.path.append('../../CPG_lib/MLMPCPG')
 sys.path.append('../../CPG_lib/icubPlot')
 iCubMotor = importlib.import_module(params.iCub_joint_names)
-myT = fSetTiming()
 
+
+def gaussian_input(x,mu,sig):
+    return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
+
+def M(axis, theta):
+    return expm(cross(eye(3), axis/norm(axis)*theta))
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+def normalize(x):
+    return x/ np.linalg.norm(x)
+
+def project_onto_plane(x, n):
+    d = np.dot(x, n) / np.linalg.norm(n)
+    p = d * normalize(n)
+    return x-p
+
+def angle_in_plane(v1,v2,n):
+    dot = np.dot(v1,v2)
+    det = v1[0]*v2[1]*n[2] + v2[0]*n[1]*v1[2] + n[0]*v1[1]*v2[2]  - v1[2]*v2[1]*n[0] - v2[2]*n[1]*v1[0] - n[2]*v1[1]*v2[0]
+    return np.arctan2(det,dot)
+
+start = time.time()
+sim_id = sys.argv[1]
+
+## Save network data
+sub_path = f"network_g{num_goals}_iCubadapt_{rotation}_id_{sim_id}"
+folder_net = f"./results2/{sub_path}/"
+Path(folder_net).mkdir(parents=True, exist_ok=False)
+
+# Compile the network
+ann_path = f"annarchy/{sub_path}"
+Path(ann_path).mkdir(parents=True, exist_ok=True)
+compile(directory=f"annarchy/adapt_{rotation}_{sim_id}")
+
+
+myT = fSetTiming()
 # Create list of CPG objects
 myCont = fnewMLMPcpg(params.number_cpg)
 # Instantiate the CPG list with iCub robot data
@@ -120,27 +147,12 @@ PF_Pat1.factor_exc = 1.0
 PF_Pat2.factor_exc = 1.0
 Inj_Curr.factor_exc = 1.0
 
-
-def gaussian_input(x,mu,sig):
-    return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
-
-
-
-hc_goals = [ [0.3286242/2.,  0.33601961/2., 0.55/2.], [-0.8713758/2.,   0.3360196/2.,  0.55/2.]]
-
-max_angle = 0
-num_tests = 0
-a = [0,0,0]
-
 pop.enable()
 
 num_trials = num_goals * num_goals_per_trial
 
 error_history = np.zeros(num_trials+num_rotation_trials+num_test_trials)
-angle_history3 = np.zeros(num_trials+num_rotation_trials+num_test_trials)
-#error_historyP = np.zeros(num_trials+10)
 
-dh = np.zeros(num_trials)
 
 ###################
 # BG controller
@@ -148,45 +160,23 @@ dh = np.zeros(num_trials)
 print('Training BG')
 goal_history, parameter_history = train_bg(num_goals)
 
+# save network connectivity
+weight_path = folder_net + "/weights_bg/"
+Path(weight_path).mkdir(parents=True, exist_ok=True)
+for proj in projections():
+    proj.save_connectivity(filename=weight_path + 'weights_' + proj.name + '.npz')
 
 ###################
 # Reservoir
 ###################
 print('Training reservoir')
 
-def M(axis, theta):
-    return expm(cross(eye(3), axis/norm(axis)*theta))
-
-
-def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
-
-def angle_between(v1, v2):
-    v1_u = unit_vector(v1)
-    v2_u = unit_vector(v2)
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-
-def normalize(x):
-    return x/ np.linalg.norm(x)
-
-def project_onto_plane(x, n):
-    d = np.dot(x, n) / np.linalg.norm(n)
-    p = d * normalize(n)
-    return x-p
-
 StrD1SNc_put.disable_learning()
 
-perpendicular_vector = np.cross(goal_history[0], goal_history[1])
-perpendicular_normalized = perpendicular_vector/np.linalg.norm(perpendicular_vector)
-rot = rotation_matrix( perpendicular_vector, np.radians(-45))
-
-def angle_in_plane(v1,v2,n):
-    dot = np.dot(v1,v2)
-    det = v1[0]*v2[1]*n[2] + v2[0]*n[1]*v1[2] + n[0]*v1[1]*v2[2]  - v1[2]*v2[1]*n[0] - v2[2]*n[1]*v1[0] - n[2]*v1[1]*v2[0]
-    return np.arctan2(det,dot)
-
-cerror = np.zeros(num_trials+num_rotation_trials+num_test_trials)
+# perpendicular_vector = np.cross(goal_history[0], goal_history[1])
+# perpendicular_normalized = perpendicular_vector/np.linalg.norm(perpendicular_vector)
+# rot = rotation_matrix( perpendicular_vector, np.radians(-45))
+shift = np.array([0.1, 0.15, 0.])
 
 # Compute the mean reward per trial
 R_mean = np.zeros(num_goals)
@@ -194,7 +184,6 @@ alpha = 0.33 #0.75 0.33
 
 final_positions = []
 cur_parameter = []
-
 
 for t in range(num_trials+num_rotation_trials+num_test_trials):
 
@@ -229,11 +218,6 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
 
     current_params =  np.copy(parameter_history[goal_id])
 
-    # Turn this on for simulations with strategy
-    if(strategy==1):
-        if(t>(num_trials+2) and t<(num_trials+num_rotation_trials-10) ):
-            current_params = np.copy(parameter_history[num_goals])
-
     if(t>-1):
         current_params+=output.reshape((4,6))
 
@@ -248,17 +232,9 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     #Turn this on for simulations with perturbation
     if(rotation==1):
         if(t>num_trials and t<(num_trials+num_rotation_trials) ):
-            final_pos = np.dot(rot, final_pos)
+            final_pos += shift
 
-
-    distance = np.linalg.norm(final_pos-current_goal)
-
-    # Activate this for simulations with strategy
-    if(strategy==1):
-        if(t>(num_trials) and t<(num_trials+num_rotation_trials)):
-            distance = np.linalg.norm(final_pos-goal_history[2])
-            print("strat, dist", distance)
-    error = distance
+    error = np.linalg.norm(final_pos-current_goal)
 
     # Plasticity
     if(t>10):
@@ -279,16 +255,11 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
     R_mean[goal_id] = alpha * R_mean[goal_id] + (1.- alpha) * error
     error_history[t] = error
 
-    rotated_proj = project_onto_plane(final_pos,perpendicular_vector)
-    angle_history3[t] = np.degrees( angle_in_plane(rotated_proj,current_goal,perpendicular_normalized) )
-    cerror[t] = error
     final_positions.append(final_pos)
 
 # save goals
 np.save(folder_net + 'goals.npy', goal_history)
-np.save(folder_net + 'rot_mat.npy', rot)
-np.save(folder_net + 'angle3.npy', angle_history3) # Directional error
-np.save(folder_net + 'cerror.npy', cerror) # Aiming error
+np.save(folder_net + 'error_history.npy', error_history) # Aiming error
 np.save(folder_net + 'final_pos.npy', final_positions) # Aiming error
 np.save(folder_net + 'parameter_history.npy', parameter_history) # Aiming error
 np.save(folder_net + 'current_parameter.npy', cur_parameter) # Aiming error
@@ -297,3 +268,5 @@ np.save(folder_net + 'current_parameter.npy', cur_parameter) # Aiming error
 # # save network connectivity
 # for proj in projections():
 #     proj.save_connectivity(filename=folder_net + 'weights_' + proj.name + '.npz')
+
+print("duration:", round(time.time()-start, 2)/60.)
