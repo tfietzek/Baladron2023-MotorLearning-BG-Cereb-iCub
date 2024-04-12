@@ -1,6 +1,6 @@
 """
 
-@author: tofo
+@author: Torsten Fietzek
 
 Class to control the iCub joints
 """

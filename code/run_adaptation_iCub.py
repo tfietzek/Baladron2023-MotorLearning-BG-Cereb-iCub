@@ -10,11 +10,12 @@ Script for the iCub adaptation task.
 """
 
 # Parameters
-num_goals = 2 # Number of goals. 2 or 8 in the manuscript
+num_goals = 1 # Number of goals. 2 or 8 in the manuscript
 num_goals_per_trial = 300 # Number of trials per goal
 num_rotation_trials = 200 # Number of rotation trials
 num_test_trials = 200 # Number of test trials
 rotation = 1 # Set to 1 to simulate a conditioon in which the 45 rotation is included
+online = False
 
 # Imports
 import importlib
@@ -27,18 +28,19 @@ from pathlib import Path
 
 # Import ANNarchy
 from ANNarchy import *
-setup(num_threads=4)
+setup(num_threads=10)
 
 # Model
 from reservoir import *
 from kinematic import *
-from train_BG_adaptation import *
+from train_BG_adaptation_iCub import *
 
 # CPG
 import CPG_lib.parameter as params
 from CPG_lib.MLMPCPG.MLMPCPG import *
 from CPG_lib.MLMPCPG.myPloting import *
 from CPG_lib.MLMPCPG.SetTiming import *
+from CPG_lib.iCub_connect import iCub_connect
 
 # Initialize robot connection
 sys.path.append('../../CPG_lib/MLMPCPG')
@@ -81,6 +83,11 @@ sim_id = sys.argv[1]
 sub_path = f"network_g{num_goals}_iCubadapt_{rotation}_id_{sim_id}"
 folder_net = f"./results2/{sub_path}/"
 Path(folder_net).mkdir(parents=True, exist_ok=False)
+
+if online:
+    iCub = iCub_connect.iCub(params.used_parts)
+else:
+    iCub = None
 
 # Compile the network
 ann_path = f"annarchy/{sub_path}"
@@ -158,13 +165,20 @@ error_history = np.zeros(num_trials+num_rotation_trials+num_test_trials)
 # BG controller
 ###################
 print('Training BG')
-goal_history, parameter_history = train_bg(num_goals)
+target = np.array([-0.3, 0.2, 0.3])
+if online:
+    weight_path = folder_net + "/weights_bg/"
+    for proj in projections():
+        proj.load_connectivity(filename=weight_path + 'weights_' + proj.name + '.npz')
 
-# save network connectivity
-weight_path = folder_net + "/weights_bg/"
-Path(weight_path).mkdir(parents=True, exist_ok=True)
-for proj in projections():
-    proj.save_connectivity(filename=weight_path + 'weights_' + proj.name + '.npz')
+else:
+    goal_history, parameter_history = train_bg(num_goals, folder_net, target)
+
+    # save network connectivity
+    weight_path = folder_net + "/weights_bg/"
+    Path(weight_path).mkdir(parents=True, exist_ok=True)
+    for proj in projections():
+        proj.save_connectivity(filename=weight_path + 'weights_' + proj.name + '.npz')
 
 ###################
 # Reservoir
@@ -189,6 +203,13 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
 
     if t%10==0:
         print(f"Trial: {t}/{num_trials+num_rotation_trials+num_test_trials}")
+
+    if t%50==0:
+        # save network connectivity
+        weight_path = f"{folder_net}/weights_{t}/"
+        Path(weight_path).mkdir(parents=True, exist_ok=True)
+        for proj in projections():
+            proj.save_connectivity(filename=weight_path + 'weights_' + proj.name + '.npz')
 
     # Select goal
     goal_id = t % num_goals
@@ -222,12 +243,7 @@ for t in range(num_trials+num_rotation_trials+num_test_trials):
         current_params+=output.reshape((4,6))
 
     cur_parameter.append(np.copy(current_params))
-    s = 0
-    pf = ''
-    if(t>(num_trials-3)):
-        s = 1
-        pf = str(t)
-    final_pos = execute_movement(current_params,s,pf)
+    final_pos = execute_movement(current_params, iCub)
 
     #Turn this on for simulations with perturbation
     if(rotation==1):

@@ -19,6 +19,7 @@ import sys
 
 from ANN_iCub_Interface.iCub import iCub_Interface, Kinematic_Reader, Kinematic_Writer
 import ANN_iCub_Interface.Vocabs as iCub_const
+from scipy import linalg
 
 
 def G(a, d, alph, theta):
@@ -110,31 +111,12 @@ def yarpvec_2_npvec(yarp_vec):
     return vector
 
 
-# def wrist_position_icub(angles):
-
-#     iCub_arm = icub.iCubArm("right_v2")
-#     iCub_arm.releaseLink(0)
-#     iCub_arm.releaseLink(1)
-#     iCub_arm.releaseLink(2)
-
-#     for j in range(16):
-#         if j<len(angles):
-#             angle = angles[j]
-#         else:
-#             angle = 0.0
-#         iCub_arm.setAng(j+3, angle)
-
-#     wrist_pos = yarpvec_2_npvec(iCub_arm.EndEffPosition())
-#     # print(angles, yarpvec_2_npvec(iCub_arm.getAng()), wrist_pos)
-
-#     return wrist_pos
-
 iCub = iCub_Interface.ANNiCub_wrapper()
-# kin_write = Kinematic_Writer.PyKinematicWriter()
+kin_write = Kinematic_Writer.PyKinematicWriter()
 kin_read = Kinematic_Reader.PyKinematicReader()
 
-# if not kin_write.init(iCub, "invkin", part=iCub_const.PART_KEY_RIGHT_ARM, version=2, ini_path="./", offline_mode=True):
-#     sys.exit("Initialization failed")
+if not kin_write.init(iCub, "invkin", part=iCub_const.PART_KEY_RIGHT_ARM, version=2, ini_path="./", offline_mode=True):
+    sys.exit("Initialization failed")
 
 if not kin_read.init(iCub, "fwkin", part=iCub_const.PART_KEY_RIGHT_ARM, version=2, ini_path="./", offline_mode=True):
     sys.exit("Initialization failed")
@@ -142,26 +124,28 @@ if not kin_read.init(iCub, "fwkin", part=iCub_const.PART_KEY_RIGHT_ARM, version=
 initangles = np.zeros(10)
 initangles[3] = 10
 initangles[4] = 15.
-initangles[5] = 15.
+initangles[6] = 15.
 
 blocked_joints = [0, 1, 2, 7, 8, 9]
 
 kin_read.set_jointangles(np.deg2rad(initangles))
-# kin_write.set_jointangles(np.deg2rad(initangles))
+kin_write.set_jointangles(np.deg2rad(initangles))
 
 kin_read.block_links(blocked_joints)
-# kin_write.block_links(blocked_joints)
+kin_write.block_links(blocked_joints)
+
 
 def wrist_position_icub(angles):
     kin_read.set_jointangles(angles)
     return kin_read.get_handposition()
 
-# def check_joint_position_icub(goal):
-#     kin_read.set_jointangles(kin_write.solve_InvKin(goal))
-#     kin_goal = kin_read.get_handposition()
-#     if np.allclose(goal, kin_goal, atol=0.05):
-#         print("in range")
-#         return True
-#     else:
-#         print("out of range")
-#         return False
+def check_joint_position_icub(goal):
+    kin_read.set_jointangles(kin_write.solve_InvKin(goal))
+    kin_goal = kin_read.get_handposition()
+    if np.allclose(goal, kin_goal, atol=0.05):
+        return True
+    else:
+        return False
+
+
+print(linalg.norm( - wrist_position_icub(initangles)))

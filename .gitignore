@@ -135,6 +135,9 @@ annarchy/
 MyiCub*
 iCubMotor*
 *.pkl
+*.ini
+*.xml
+*/iCub_connect/iCub_connect.py
 
 # tests
 test_*.py
