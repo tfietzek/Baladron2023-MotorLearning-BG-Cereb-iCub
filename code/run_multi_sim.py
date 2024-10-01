@@ -2,7 +2,8 @@
 from subprocess import Popen
 import sys
 
-num_trials = 32
+num_trials = 20
+offset = 20
 
 prcs = []
 max_prcs_count = 4
@@ -10,8 +11,8 @@ max_prcs_count = 4
 script = 'run_adaptation_iCub.py'
 
 try:
-    idx = 0
-    while(idx < num_trials):
+    idx = offset
+    while(idx < num_trials+offset):
         if len(prcs) < max_prcs_count:
             prcs.append(Popen(['python3', script, str(idx)]))
             idx += 1

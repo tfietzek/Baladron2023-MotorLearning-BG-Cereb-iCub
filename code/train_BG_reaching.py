@@ -203,7 +203,6 @@ def random_goal2(initial_position):
     else:
         return [0,0,0]
 
-
 def random_goal(initial_position):
 
     counter = 0
@@ -231,18 +230,14 @@ def train_bg(nt):
 
     num_trials_test = 400
 
-
     error_history = np.zeros(num_trials_test+nt)
-
 
     counter = 0
     goals = np.zeros((nt,3))
     parameter_history = np.zeros((nt,4,6))
-    distance_history = np.zeros(nt)
 
     for trial in range(num_trials_test+nt):
         print('trial '+str(trial))
-
 
         RG_Pat1.noise = 0.0
         RG_Pat2.noise = 0.0
@@ -282,22 +277,17 @@ def train_bg(nt):
 
         Cortical_input.baseline=0.0
 
-
         #inter trial
         simulate(700) #650
 
-
         goal = [0,0,0]
         while(np.array_equal(goal,[0,0,0])):
-
             current_angles = np.copy(angles)
             initial_position = wrist_position_icub(np.radians(current_angles[joints]))[0:3]
             goal = random_goal2_iCub(initial_position)
 
-
         neuron_update(Cortical_input,goal, 10.0, 0.5) #0.2,1 // 0.005,1.0 IN ORIGINAL
         simulate(200)
-
 
         ran_prim = 0
         if(np.max(PM.r)<0.05):
@@ -314,7 +304,6 @@ def train_bg(nt):
                 goals[counter] = goal
                 counter+=1
 
-
         pms = np.zeros((4,6))
         for j in range(4):
             RG1_joint = 5+parameter_readout(RG_Pat1[j,:],0,5)
@@ -330,13 +319,11 @@ def train_bg(nt):
             pms[j] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
 
-
         #execute a movement
         final_pos = execute_movement(pms,current_angles)
         vel_final = final_pos-initial_position
 
         nvf = np.linalg.norm(vel_final)
-        nn= 0.0
 
         Cortical_input.baseline=0.0
         neuron_update(Cortical_input, final_pos, 10.0, 0.5)
@@ -350,16 +337,12 @@ def train_bg(nt):
             SNc_put.firing = 0.0
             reward.baseline=0.0
 
-
         Intermediate.baseline = 0
         Cortical_input.baseline=0.0
 
         error_history[trial] = np.linalg.norm(final_pos-goal)
 
-
-    np.save('error_history_bg_reach_' + str(nt) + '_' + str(num_trials_test) + '.npy',error_history)
-
-    return goals, parameter_history
+    return goals, parameter_history, error_history
 
 
 

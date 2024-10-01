@@ -76,6 +76,7 @@ def wrist_position2(a1,a2,a3,a4):
     G_05 = np.matmul(G_04, G_45)
     return G_04.dot(np.array([0, 0, 0, 1]).T)
 
+
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about

@@ -69,6 +69,7 @@ angles = np.zeros(params.number_cpg)
 angles[iCubMotor.RShoulderPitch] = 10
 angles[iCubMotor.RShoulderRoll] = 15.
 angles[iCubMotor.RElbow] = 15.
+angles[iCubMotor.RHandFinger] = 60.
 #angles = np.radians(angles)
 
 
@@ -87,6 +88,8 @@ angles = np.zeros(params.number_cpg)
 angles[iCubMotor.RShoulderPitch] = 10
 angles[iCubMotor.RShoulderRoll] = 15.
 angles[iCubMotor.RElbow] = 15.
+angles[iCubMotor.RHandFinger] = 60.
+
 
 initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 
@@ -94,12 +97,11 @@ initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 def gaussian_input(x,mu,sig):
              return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
 
-def execute_movement(pms,s=0,pf=''):
+def execute_movement(pms, iCub_robot=None, sim_cam_front=None, sim_cam_top=None):
+    imgs_front = []
+    imgs_top = []
     myCont = fnewMLMPcpg(params.number_cpg)
     myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
-
-
-    an = np.zeros((120,4))
 
     for j in range(4):
         myCont[joints[j]].fSetPatternRG(RG_Patterns(pms[j,0], pms[j,1], pms[j,2], pms[j,3]))
@@ -116,7 +118,7 @@ def execute_movement(pms,s=0,pf=''):
             myCont[i].fUpdateLocomotionNetwork(myT, current_angles[i])
     for idx, controller in enumerate(myCont):
             iCubMotor.MotorCommand[idx] = controller.joint.joint_motor_signal
-    #iCub_robot.iCub_set_angles(iCubMotor.MotorCommand)
+    initial_jojnt = iCubMotor.MotorCommand
     All_Command.append(iCubMotor.MotorCommand[:])
     All_Joints_Sensor.append(current_angles)
     I=0
@@ -126,18 +128,34 @@ def execute_movement(pms,s=0,pf=''):
             myCont[i].fUpdateLocomotionNetwork(myT, current_angles[i])
         for idx, controller in enumerate(myCont):
             iCubMotor.MotorCommand[idx] = controller.joint.joint_motor_signal
-        #iCub_robot.iCub_set_angles(iCubMotor.MotorCommand)
+        if iCub_robot != None:
+            iCub_robot.iCub_set_angles(iCubMotor.MotorCommand)
+        # if sim_cam_front != None:
+        #     imgs_front.append(sim_cam_front.read_image())
+        # if sim_cam_top != None:
+        #     imgs_top.append(sim_cam_top.read_image())
+
         All_Command.append(iCubMotor.MotorCommand[:])
         All_Joints_Sensor.append(current_angles)
-        if(s==1):
-            mc_a = np.array(iCubMotor.MotorCommand[:])
-            an[I-1] = mc_a[joints]
 
-    mc_a = np.array(iCubMotor.MotorCommand[:])
+    if iCub_robot != None:
+        mc_a = iCub_robot.iCub_get_angles()
+    else:
+        mc_a = np.array(iCubMotor.MotorCommand[:])
     final_pos = wrist_position_icub(mc_a[joints])[0:3]
-    #if(s==1):
-    #    np.save(sim+'_'+pf+'_angles.npy',an)
-    return final_pos
+
+    return final_pos, imgs_front, imgs_top
+
+# def semi_random_goal_icub(initial_position, target):
+#     nvd = 0
+#     goal = np.copy(target)
+#     while(nvd<0.2):
+#         goal[0] += np.random.normal(0, 0.05)
+#         goal[1] += np.random.normal(0, 0.05)
+#         goal[2] += np.random.normal(0, 0.05)
+#         if check_joint_position_icub(goal):
+#             nvd = np.linalg.norm(goal-initial_position)
+#     return goal
 
 def random_goal_icub(initial_position):
     nvd = 0
@@ -198,16 +216,16 @@ def rotation_matrix(axis, theta):
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-def train_bg(nt):
+def train_bg(nt, folder_net, target):
 
     num_trials_test = 450
 
-    error_history = np.zeros(num_trials_test+nt+1)
-    goals = np.zeros((nt+1,3))
-    parameter_history = np.zeros((nt+1,4,6))
-    distance_history = np.zeros(nt+1)
+    error_history = np.zeros(num_trials_test+nt)
+    goals = np.zeros((nt,3))
+    parameter_history = np.zeros((nt,4,6))
+    distance_history = np.zeros(nt)
 
-    for trial in range(num_trials_test+nt+1):
+    for trial in range(num_trials_test+nt):
         print("trial", trial)
 
         RG_Pat1.noise = 0.0
@@ -280,7 +298,7 @@ def train_bg(nt):
             pms[j] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
         #execute a movement
-        final_pos = execute_movement(pms,0,' ')
+        final_pos = execute_movement(pms, None)
         vel_final = final_pos-initial_position
         nvf = np.linalg.norm(vel_final)
 
@@ -300,7 +318,7 @@ def train_bg(nt):
             parameter_history[trial-num_trials_test] = pms
             distance_history[trial-num_trials_test] = np.linalg.norm(final_pos-goal)
 
-    np.save('error_history_bg_adapt_' + str(nt) + '.npy',error_history)
+    np.save(f"{folder_net}/error_history_bg_adapt_{nt}.npy", error_history)
 
     return goals,parameter_history
 
@@ -352,7 +370,7 @@ def prim_profiles():
 
             parameter_history[a] = [RG1_joint,RG2_joint,RG3_joint,RG4_joint,PF1_joint,PF2_joint]
 
-        final_pos = execute_movement(parameter_history[a])
+        final_pos = execute_movement(parameter_history[a], None)
 
         vel_a = final_pos-initial_pos
 

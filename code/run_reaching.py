@@ -42,15 +42,20 @@ from CPG_lib.MLMPCPG.MLMPCPG import *
 from CPG_lib.MLMPCPG.myPloting import *
 from CPG_lib.MLMPCPG.SetTiming import *
 
+if len(sys.argv) > 1:
+    sim_id = sys.argv[1]
+else:
+    sim_id = ""
 
 # Prepare save directory
-folder_net = './results/network_expand_g' + str(num_goals) + '_run'
-if len(sys.argv) > 1:
-    folder_net += '_' + sys.argv[1]
-Path(folder_net).mkdir(parents=True, exist_ok=False)
+sub_path = f"net_reach_f1_A20_alpha0_33_g{num_goals}_run{sim_id}"
+folder_net = f"./results2/{sub_path}/"
+Path(folder_net).mkdir(parents=True, exist_ok=True)
 
 # Compile the network
-compile(directory="annarchy/reach_" + sys.argv[1])
+ann_path = f"./annarchy/{sub_path}/"
+Path(ann_path).mkdir(parents=True, exist_ok=True)
+compile(directory=ann_path)
 
 # Initialize robot connection
 sys.path.append('../../CPG_lib/MLMPCPG')
@@ -149,7 +154,7 @@ dh = np.zeros(num_trials)
 # BG controller
 ###################
 print('Training BG')
-goal_history, parameter_history = train_bg(num_goals)
+goal_history, parameter_history, bg_history = train_bg(num_goals)
 
 # Compute the mean reward per trial
 R_mean = np.zeros(num_goals)
@@ -232,16 +237,17 @@ for t in range(num_trials):
 
 
 ## Save network data
-np.save(folder_net + '/error_' + str(num_goals) + '.npy', error_history)
+np.save(f"{folder_net}/error.npy", error_history)
+np.save(f"{folder_net}/error_history_bg_reach.npy", bg_history)
 
 # Save data
-# np.save(folder_net + '/parameter_' + str(num_goals) + '.npy' ,parameter)
-np.save(folder_net + '/goals.npy', goal_history)
-# np.save(folder_net + '/goal_per_trial.npy', goal_per_trial)
-# np.save(folder_net + '/fin_pos_trials.npy', fin_pos_trials)
-# np.save(folder_net + '/init_pos_trials.npy', init_pos_trials)
-# np.save(folder_net + '/init_angles_trials.npy', init_angles)
+np.save(f"{folder_net}/parameter.npy", parameter)
+np.save(f"{folder_net}/goals.npy", goal_history)
+np.save(f"{folder_net}/goal_per_trial.npy", goal_per_trial)
+# np.save(f"{folder_net}/fin_pos_trials.npy", fin_pos_trials)
+# np.save(f"{folder_net}/init_pos_trials.npy", init_pos_trials)
+# np.save(f"{folder_net}/init_angles_trials.npy", init_angles)
 
-# # Save network connectivity
-# for proj in projections():
-#     proj.save_connectivity(filename=folder_net + '/weights_' + proj.name + '.npz')
+# Save network connectivity
+for proj in projections():
+    proj.save_connectivity(filename=f"{folder_net}/weights_{proj.name}.npz")

@@ -135,11 +135,14 @@ annarchy/
 MyiCub*
 iCubMotor*
 *.pkl
+*.xml
+*/iCub_connect/iCub_connect.py
 
-# tests
-test_*.py
+# Tests
+*test*.py
 
 # results
 *.npy
 *.npz
-results/
+*.svg
+*/results/
