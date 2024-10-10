@@ -91,7 +91,7 @@ initial_position = wrist_position_icub(np.radians(angles[joints]))[0:3]
 def gaussian_input(x,mu,sig):
              return np.exp(-np.power(x-mu,2.)/(2*np.power(sig,2)))
 
-def execute_movement(pms,current_angles):
+def execute_movement(pms, current_angles, radians: bool):
     myCont = fnewMLMPcpg(params.number_cpg)
     myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
 
@@ -105,8 +105,8 @@ def execute_movement(pms,current_angles):
         myCont[joints[j]].RG.F.InjCurrent_value = 1.0 * myCont[joints[j]].RG.F.InjCurrent_MultiplicationFactor
         myCont[joints[j]].RG.E.InjCurrent_value = -1.0 * myCont[joints[j]].RG.E.InjCurrent_MultiplicationFactor
 
-    #current_angles = np.copy(angles)
-    current_angles = np.radians(current_angles)
+    if not radians:
+        current_angles = np.radians(current_angles)
 
     # Update CPG initial position (reference position)
     for i in range(0, len(myCont)):
@@ -131,10 +131,9 @@ def execute_movement(pms,current_angles):
         All_Command.append(iCubMotor.MotorCommand[:])
         All_Joints_Sensor.append(current_angles)
 
-
     mc_a = np.array(iCubMotor.MotorCommand[:])
     final_pos = wrist_position_icub(mc_a[joints])[0:3]
-    return final_pos
+    return final_pos, mc_a[joints]
 
 clip = lambda x, l, u: l if x < l else u if x > u else x
 def random_goal2_iCub(initial_position):

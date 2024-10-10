@@ -7,7 +7,6 @@ The contribution of the basal ganglia and cerebellum to motor learning: a neuro-
 Copyright the Authors (License MIT)
 """
 
-
 # Basic imports
 import importlib
 import sys
@@ -17,6 +16,7 @@ from pathlib import Path
 
 # ANNarchy
 from ANNarchy import *
+
 setup(num_threads=2)
 
 # Model
@@ -81,7 +81,6 @@ joint4 = iCubMotor.RElbow
 
 joints = [joint1, joint2, joint3, joint4]
 
-
 AllJointList = joints
 num_joints = 4
 angles = np.zeros(params.number_cpg)
@@ -123,7 +122,6 @@ Inj_Curr.factor_exc = 1.0
 
 def readout_CPG(intermediate_id: int | None = None,
                 num_intermediate_neurons: int = Intermediate.geometry[0]) -> np.ndarray:
-
     if intermediate_id is None:
         intermediate_id = np.random.randint(0, num_intermediate_neurons - 1)
 
@@ -148,8 +146,8 @@ def readout_CPG(intermediate_id: int | None = None,
 def inverse_kinematics(goal: np.ndarray,
                        initial_cpg_params: np.ndarray,
                        initial_angles: np.ndarray,
-                       abort_criterion: float = 1e-4,
-                       max_iterations: int = 1_000,
+                       abort_criterion: float = 1e-5,
+                       max_iterations: int = 10_000,
                        radians: bool = True) -> np.ndarray:
     """
     Returns CPG Parameters to a specific goal position
@@ -162,10 +160,10 @@ def inverse_kinematics(goal: np.ndarray,
     :return: CPG parameters to goal position
     """
 
+    pms_shape = initial_cpg_params.shape
+
     if not radians:
         initial_angles = np.radians(initial_angles)
-
-    pms_shape = initial_cpg_params.shape
 
     def objective_function(cpg_params: np.ndarray,
                            initial_angles: np.ndarray = initial_angles,
@@ -177,11 +175,13 @@ def inverse_kinematics(goal: np.ndarray,
         if cpg_params.shape != cpg_params_shape:
             cpg_params = cpg_params.reshape(cpg_params_shape)
 
-        final_pos = execute_movement(cpg_params, initial_angles)
-        position_error = np.linalg.norm(goal - final_pos)
+        final_pos, final_angles = execute_movement(cpg_params, initial_angles, radians=True)
+        error = np.linalg.norm(goal - final_pos)
 
         # TODO: Implement angle penalty?
-        return position_error
+        error += 1e-2 * np.linalg.norm(final_angles - initial_angles[:4])
+
+        return error
 
     if objective_function(initial_cpg_params) < abort_criterion:
         print('Initial position is already close enough')
@@ -211,28 +211,6 @@ inverse_results = {
     'cpg_params_init': [],
 }
 
-# for t in range(num_trials):
-#     # Choose the goal
-#     goal = random_goal2_iCub(initial_position)
-#     init_pms = readout_CPG()
-
-#     # Run the optimization
-#     pms = inverse_kinematics(goal=goal,
-#                              initial_cpg_params=init_pms,
-#                              initial_angles=initial_angles, radians=False)
-
-#     inverse_results['goals'].append(goal)
-#     inverse_results['cpg_params_to_goals'].append(pms)
-#     inverse_results['cpg_params_init'].append(init_pms)
-
-#     if debug:
-#         print('Goal:', goal)
-#         print('CPG:', pms)
-#         print('Difference CPG:', pms.reshape(-1) - init_pms.reshape(-1))
-
-# np.savez(folder_net + 'inverse_results', **inverse_results)
-
-
 initial_angles = np.zeros(params.number_cpg)
 
 init_pos_arm = np.array([-49., 60., 66., 15., -60., -5., -5.])
@@ -242,7 +220,7 @@ kin_read.release_links([7, 8, 9])
 kin_read.set_jointangles(init_pos_arm)
 kin_read.block_links([7, 8, 9])
 
-goal = [-0.25, 0.1, 0.15]
+goal = np.array([-0.25, 0.1, 0.15])
 
 min_angle = 15
 max_angle = 81
@@ -254,15 +232,14 @@ for ang in angles:
     init_pms = readout_CPG()
     initial_position = wrist_position_icub(np.radians(initial_angles[joints]))[0:3]
 
-
     # Run the optimization
     pms = inverse_kinematics(goal=goal,
-                            initial_cpg_params=init_pms,
-                            initial_angles=initial_angles,
-                            max_iterations=5000,
-                            radians=False)
+                             initial_cpg_params=init_pms,
+                             initial_angles=np.array(initial_angles),
+                             max_iterations=10_000,
+                             radians=False)
 
-    reached = execute_movement(np.reshape(pms, (4,6)), initial_angles)
+    reached, angles = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
     print('Goal:', goal, reached, np.linalg.norm(goal - reached))
 
     if debug:
