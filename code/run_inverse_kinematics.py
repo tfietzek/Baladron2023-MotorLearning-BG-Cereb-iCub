@@ -224,7 +224,7 @@ goal = np.array([-0.25, 0.1, 0.15])
 
 min_angle = 15
 max_angle = 81
-step = 2
+step = 1
 angles = [i for i in range(min_angle, max_angle, step)]
 
 for ang in angles:
@@ -239,7 +239,7 @@ for ang in angles:
                              max_iterations=10_000,
                              radians=False)
 
-    reached, angles = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
+    reached, _ = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
     print('Goal:', goal, reached, np.linalg.norm(goal - reached))
 
     if debug:
