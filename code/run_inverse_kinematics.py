@@ -33,7 +33,7 @@ from scipy.optimize import minimize
 
 # find cpg parameters to how many random targets?
 run_id = sys.argv[1]
-debug: bool = True
+debug: bool = False
 
 # Prepare save directory
 folder_net = './results/network_inverse_kinematic'
@@ -199,7 +199,7 @@ def inverse_kinematics(goal: np.ndarray,
         return result.x
     else:
         print('Optimization failed')
-        return initial_cpg_params
+        return initial_cpg_params.reshape(4, 6)
 
 
 inverse_results = {
