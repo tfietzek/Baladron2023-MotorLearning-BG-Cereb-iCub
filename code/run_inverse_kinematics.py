@@ -32,7 +32,7 @@ from CPG_lib.MLMPCPG.SetTiming import *
 from scipy.optimize import minimize
 
 # find cpg parameters to how many random targets?
-num_trials = 66
+run_id = sys.argv[1]
 debug: bool = True
 
 # Prepare save directory
@@ -205,7 +205,10 @@ def inverse_kinematics(goal: np.ndarray,
 inverse_results = {
     'initial_position': [],
     'initial_angle': [],
+    'changed_angle': [],
     'goals': [],
+    'goals_reached': [],
+    'error': [],
     'cpg_params_to_goals': [],
     'cpg_params_init': [],
 }
@@ -246,12 +249,15 @@ for ang in angles:
         print('Difference CPG:', pms.reshape(-1) - init_pms.reshape(-1))
 
     inverse_results['initial_position'].append(initial_position)
-    inverse_results['initial_angle'].append(ang)
+    inverse_results['initial_angle'].append(initial_angles)
+    inverse_results['changed_angle'].append(ang)
     inverse_results['goals'].append(goal)
-    inverse_results['cpg_params_to_goals'].append(pms)
+    inverse_results['goals_reached'].append(reached)
+    inverse_results['cpg_params_to_goals'].append(pms.reshape(4, 6))
     inverse_results['cpg_params_init'].append(init_pms)
+    inverse_results['error'].append(error)
 
     # set initial CPG parameters to fitted parameters in hope that they will be a better fit than random initialization
     init_pms = pms.reshape(4, 6)
 
-np.savez(folder_net + '/inverse_results', **inverse_results)
+np.savez(folder_net + f'/inverse_results_run{run_id}', **inverse_results)
