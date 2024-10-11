@@ -40,7 +40,7 @@ folder_net = './results/network_inverse_kinematic'
 Path(folder_net).mkdir(parents=True, exist_ok=True)
 
 # Compile the network
-compile_folder = './annarchy/inverse_kinematic'
+compile_folder = f'./annarchy/inverse_kinematic_run{run_id}'
 Path(compile_folder).mkdir(parents=True, exist_ok=True)
 compile(directory=compile_folder)
 
