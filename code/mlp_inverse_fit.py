@@ -89,14 +89,20 @@ def train_mlp(df: pd.DataFrame,
     return mlp, scaler
 
 
+def execute_test_rhi_with_mlp(rhi_path,
+                              mlp,
+                              scaler) -> np.ndarray:
+    pass
+
+
 if __name__ == '__main__':
 
     # load data
     df = merge_data()
 
     hidden_layer_sizes = (
-        (64,), (64, 64), (128,), (128, 128), (256,), (256, 256), (512,), (512, 512),
+        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128), (256,), (256, 256), (512,), (512, 512),
     )
 
     for hidden_layer_size in hidden_layer_sizes:
-        train_mlp(df, hidden_layer_size=hidden_layer_size)
+        train_mlp(df, hidden_layer_size=hidden_layer_size, random_state=None)

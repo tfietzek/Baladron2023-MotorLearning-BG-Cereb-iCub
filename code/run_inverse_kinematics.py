@@ -23,6 +23,7 @@ setup(num_threads=2)
 from kinematic import *
 from cpg import *
 from train_BG_reaching import execute_movement, random_goal2_iCub
+from mlp_inverse_fit import load_rhi_thetas
 
 # CPG
 import CPG_lib.parameter as params
@@ -146,8 +147,8 @@ def readout_CPG(intermediate_id: int | None = None,
 def inverse_kinematics(goal: np.ndarray,
                        initial_cpg_params: np.ndarray,
                        initial_angles: np.ndarray,
-                       abort_criterion: float = 1e-9,
-                       max_iterations: int = 10_000,
+                       abort_criterion: float = 1e-6,
+                       max_iterations: int = 1_000,
                        radians: bool = True) -> np.ndarray:
     """
     Returns CPG Parameters to a specific goal position
@@ -227,7 +228,7 @@ goal = np.array([-0.25, 0.1, 0.15])
 min_angle = 15
 max_angle = 81
 step = 1
-angles = [i for i in range(min_angle, max_angle, step)]
+angles = load_rhi_thetas()
 
 init_pms = readout_CPG()
 for ang in angles:
@@ -238,7 +239,8 @@ for ang in angles:
     pms = inverse_kinematics(goal=goal,
                              initial_cpg_params=init_pms,
                              initial_angles=np.array(initial_angles),
-                             max_iterations=100_000,
+                             max_iterations=1_000_000,
+                             abort_criterion=1e-12,
                              radians=False)
 
     reached, _ = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)

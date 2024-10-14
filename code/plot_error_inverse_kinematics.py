@@ -38,4 +38,3 @@ def choose_run_with_lowest_error(path: str = 'results/network_inverse_kinematic/
 
 if __name__ == '__main__':
     plot_error_inverse_kinematics()
-    
