@@ -95,7 +95,6 @@ def execute_movement(pms, current_angles, radians: bool):
     myCont = fnewMLMPcpg(params.number_cpg)
     myCont = fSetCPGNet(myCont, params.my_iCub_limits, params.positive_angle_dir)
 
-
     an = np.zeros((120,4))
 
     for j in range(4):

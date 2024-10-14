@@ -240,7 +240,7 @@ for ang in angles:
                              initial_cpg_params=init_pms,
                              initial_angles=np.array(initial_angles),
                              max_iterations=1_000_000,
-                             abort_criterion=1e-12,
+                             abort_criterion=1e-8,
                              radians=False)
 
     reached, _ = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
