@@ -1,5 +1,5 @@
 import importlib
-
+import pandas as pd
 import numpy as np
 
 # Model
@@ -18,11 +18,68 @@ from scipy.optimize import minimize
 from mlp_inverse_fit import train_mlp, test_mlp, merge_training_data, merge_test_data, get_prediction
 
 
+def plot_reaching_error_on_test_data(test_path: str = 'results/mlp_execute_movement/results_on_test_set.npz',
+                                     show_plot: bool = False) -> None:
+
+    if not os.path.isfile(test_path):
+        raise FileNotFoundError(f'No data found at {test_path}')
+
+    test_data = np.load(test_path)
+
+    df = pd.DataFrame({
+        'proprio': test_data['proprio_angles'],
+        'vision': test_data['vision_angles'],
+        'diff': test_data['proprio_angles'] - test_data['vision_angles'],
+        'error': test_data['errors']
+    })
+
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(df['proprio'], df['error'], c=np.abs(df['diff']), cmap='RdBu_r')
+    plt.colorbar(scatter, label='diff')
+
+    plt.xlabel('Proprio theta in [°]')
+    plt.ylabel('Error in [m]')
+
+    plt.tight_layout()
+    plt.savefig('results/mlp_execute_movement/reaching_error_on_test_set.pdf', dpi=300, bbox_inches='tight')
+
+    if show_plot:
+        plt.show()
+
+
+def plot_reaching_error_on_train_data(train_path: str = 'results/mlp_execute_movement/results_on_train_set.npz',
+                                       show_plot: bool = False) -> None:
+
+    if not os.path.isfile(train_path):
+        raise FileNotFoundError(f'No data found at {train_path}')
+
+    train_data = np.load(train_path)
+
+    df = pd.DataFrame({
+        'theta': train_data['proprio_angles'],
+        'error': train_data['errors']
+    })
+
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(df['theta'], df['error'], c=np.abs(df['error']), cmap='RdBu_r')
+    plt.colorbar(scatter, label='Error in [m]')
+
+    plt.xlabel('Proprio + vis theta in [°]')
+    plt.ylabel('Error in [m]')
+
+    plt.tight_layout()
+    plt.savefig('results/mlp_execute_movement/reaching_error_on_train_set.pdf', dpi=300, bbox_inches='tight')
+
+    if show_plot:
+        plt.show()
+
+
 if __name__ == '__main__':
     # load data
     train_df = merge_training_data()
-    n_samples: int = 30  # number of samples to test the movement
+    n_samples: None | int = None  # number of samples to test the movement
     print_error: bool = False
+
     # Initialize robot connection
     sys.path.append('../../CPG_lib/MLMPCPG')
     sys.path.append('../../CPG_lib/icubPlot')
@@ -48,7 +105,7 @@ if __name__ == '__main__':
 
     # train mlp
     print("Training MLP")
-    max_iter = 10
+    max_iter = 30
     best_mlp, best_scaler, best_mse = None, None, np.inf
     for _ in range(max_iter):
         mlp, scaler, mse = train_mlp(train_df, hidden_layer_size=(256, 256), random_state=None, print_mse=False)
@@ -60,11 +117,15 @@ if __name__ == '__main__':
 
     # test mlp with train input
     print("Testing MLP with train data...")
-    df_inputs = train_df.sample(n=n_samples)
+    if n_samples is None:
+        df_inputs = train_df
+    else:
+        df_inputs = train_df.sample(n=n_samples)
 
     results_training_set = {
         'goal': goal,
         'initial_angles': [],
+        'proprio_angles': [],
         'reached_pos': [],
         'reached_angles': [],
         'errors': [],
@@ -82,6 +143,7 @@ if __name__ == '__main__':
         results_training_set['initial_angles'].append(initial_angles)
         results_training_set['reached_pos'].append(reached)
         results_training_set['reached_angles'].append(reached_angles)
+        results_training_set['proprio_angles'].append(row['theta'])
 
         # calculate error
         results_training_set['errors'].append(np.linalg.norm(goal - reached))
@@ -95,13 +157,19 @@ if __name__ == '__main__':
 
     np.savez(folder + 'results_on_training_set.npz', **results_training_set)
 
+    plot_reaching_error_on_train_data(train_path=folder + 'results_on_training_set.npz', show_plot=True)
+
     # test mlp with test inputs
     print("Testing MLP with test data...")
-    df_inputs = merge_test_data()
+    if n_samples is None:
+        df_inputs = merge_test_data()
+    else:
+        df_inputs = merge_test_data().sample(n=n_samples)
 
     results_test_set = {
         'goal': goal,
         'initial_angles': [],
+        'proprio_angles': [],
         'vision_angles': [],
         'reached_pos': [],
         'reached_angles': [],
@@ -121,6 +189,7 @@ if __name__ == '__main__':
         results_test_set['reached_pos'].append(reached)
         results_test_set['reached_angles'].append(reached_angles)
         results_test_set['vision_angles'].append(row['vision_theta'])
+        results_test_set['proprio_angles'].append(row['theta'])
 
         # calculate error
         results_test_set['errors'].append(np.linalg.norm(goal - reached))
@@ -129,3 +198,5 @@ if __name__ == '__main__':
             print(f'Error: {results_test_set["errors"][-1]}')
 
     np.savez(folder + 'results_on_test_set.npz', **results_test_set)
+
+    plot_reaching_error_on_test_data(folder + 'results_on_test_set.npz', show_plot=False)
