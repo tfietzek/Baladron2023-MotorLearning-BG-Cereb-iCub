@@ -1,4 +1,6 @@
 import importlib
+import os.path
+
 import pandas as pd
 import numpy as np
 
@@ -20,7 +22,6 @@ from mlp_inverse_fit import train_mlp, test_mlp, merge_training_data, merge_test
 
 def plot_reaching_error_on_test_data(test_path: str = 'results/mlp_execute_movement/results_on_test_set.npz',
                                      show_plot: bool = False) -> None:
-
     if not os.path.isfile(test_path):
         raise FileNotFoundError(f'No data found at {test_path}')
 
@@ -48,8 +49,7 @@ def plot_reaching_error_on_test_data(test_path: str = 'results/mlp_execute_movem
 
 
 def plot_reaching_error_on_train_data(train_path: str = 'results/mlp_execute_movement/results_on_train_set.npz',
-                                       show_plot: bool = False) -> None:
-
+                                      show_plot: bool = False) -> None:
     if not os.path.isfile(train_path):
         raise FileNotFoundError(f'No data found at {train_path}')
 
@@ -74,11 +74,87 @@ def plot_reaching_error_on_train_data(train_path: str = 'results/mlp_execute_mov
         plt.show()
 
 
+def ols_reach_error(test_data_path: str = 'results/mlp_execute_movement/results_on_test_set.npz',
+                    show_plot: bool = False,
+                    use_abs_diff: bool = True) -> tuple[float, float]:
+
+    from scipy import stats
+    import statsmodels.api as sm
+
+    if not os.path.isfile(test_data_path):
+        raise FileNotFoundError(f'No data found at {test_data_path}')
+
+    test_data = np.load(test_data_path)
+
+    df = pd.DataFrame({
+        'diff': test_data['proprio_angles'] - test_data['vision_angles'],
+        'error': test_data['errors']
+    })
+
+    if use_abs_diff:
+        df['diff'] = np.abs(df['diff'])
+
+    # Add a constant to the independent variable
+    X = sm.add_constant(df['diff'])
+
+    # Fit the model
+    model = sm.OLS(df['error'], X).fit()
+
+    # Calculate the correlation coefficient
+    correlation_coefficient, p_value = stats.pearsonr(df['diff'], df['error'])
+
+    # Create a scatter plot with the regression line
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df['diff'], df['error'], alpha=0.5)
+    plt.plot(df['diff'], model.predict(X), color='red', linewidth=2)
+
+    plt.xlabel('Diff')
+    plt.ylabel('Error')
+    plt.title(f'OLS Regression, r={correlation_coefficient:.3f}, p={p_value:.3f}')
+
+    plt.tight_layout()
+    plt.savefig('results/mlp_execute_movement/ols_reach_error.pdf', dpi=300, bbox_inches='tight')
+    if show_plot:
+        plt.show()
+
+    return correlation_coefficient, p_value
+
+
+def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/' ) -> None:
+    import pickle
+
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    # Save the MLP
+    with open(save_path + 'mlp_model.pkl', 'wb') as f:
+        pickle.dump(mlp, f)
+
+    # Save the scaler
+    with open(save_path + 'scaler.pkl', 'wb') as f:
+        pickle.dump(scaler, f)
+
+
+def load_mlp(save_path: str = 'results/mlp_execute_movement/' ):
+    import pickle
+
+    with open(save_path + 'mlp_model.pkl', 'rb') as f:
+        mlp = pickle.load(f)
+
+    with open(save_path + 'scaler.pkl', 'rb') as f:
+        scaler = pickle.load(f)
+
+    return mlp, scaler
+
+
 if __name__ == '__main__':
+    # Parameters
+    n_samples: None | int = None  # number of samples to test the movement. If None, all samples are used
+    save_best_model: bool = True
+    print_error: bool = False
+
     # load data
     train_df = merge_training_data()
-    n_samples: None | int = None  # number of samples to test the movement
-    print_error: bool = False
 
     # Initialize robot connection
     sys.path.append('../../CPG_lib/MLMPCPG')
@@ -105,7 +181,7 @@ if __name__ == '__main__':
 
     # train mlp
     print("Training MLP")
-    max_iter = 30
+    max_iter = 50
     best_mlp, best_scaler, best_mse = None, None, np.inf
     for _ in range(max_iter):
         mlp, scaler, mse = train_mlp(train_df, hidden_layer_size=(256, 256), random_state=None, print_mse=False)
@@ -113,6 +189,9 @@ if __name__ == '__main__':
             best_mse = mse
             best_mlp = mlp
             best_scaler = scaler
+
+    if save_best_model:
+        save_mlp(best_mlp, best_scaler)
     print(f"Best MLP MSE: {best_mse}\n")
 
     # test mlp with train input
@@ -157,7 +236,7 @@ if __name__ == '__main__':
 
     np.savez(folder + 'results_on_training_set.npz', **results_training_set)
 
-    plot_reaching_error_on_train_data(train_path=folder + 'results_on_training_set.npz', show_plot=True)
+    plot_reaching_error_on_train_data(train_path=folder + 'results_on_training_set.npz', show_plot=False)
 
     # test mlp with test inputs
     print("Testing MLP with test data...")
@@ -200,3 +279,4 @@ if __name__ == '__main__':
     np.savez(folder + 'results_on_test_set.npz', **results_test_set)
 
     plot_reaching_error_on_test_data(folder + 'results_on_test_set.npz', show_plot=False)
+    ols_reach_error(folder + 'results_on_test_set.npz', show_plot=False)
