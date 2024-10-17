@@ -3,7 +3,7 @@ import numpy as np
 from glob import glob
 
 
-def plot_error_inverse_kinematics(runs: tuple = (1, 2, 3, 4, 5, 6),
+def plot_error_inverse_kinematics(runs: tuple = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
                                   path: str = 'results/network_inverse_kinematic/'):
 
     fig, axs = plt.subplots(nrows=len(runs), ncols=1, figsize=(12, 4), sharex=True)
@@ -17,6 +17,12 @@ def plot_error_inverse_kinematics(runs: tuple = (1, 2, 3, 4, 5, 6),
         axs[i].grid()
 
     plt.show()
+
+
+def load_inverse_kinematic_results(file_path: str) -> dict:
+    if file_path[-4:] != '.npz':
+        file_path += '.npz'
+    return np.load(file_path)
 
 
 def choose_run_with_lowest_error(path: str = 'results/network_inverse_kinematic/'):

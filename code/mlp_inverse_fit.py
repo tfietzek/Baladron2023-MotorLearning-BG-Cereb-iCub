@@ -2,27 +2,38 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Optional
-from plot_error_inverse_kinematics import choose_run_with_lowest_error
+import os
+
+from plot_error_inverse_kinematics import choose_run_with_lowest_error, load_inverse_kinematic_results
 
 
 def load_rhi_data(path: str = 'RHI/data.npz',
-                  debug: bool = False) -> dict:
+                  debug: bool = False,
+                  normalize: bool = True) -> dict:
     data = np.load(path, allow_pickle=True)['arr_0'].item()
     if debug:
         plt.plot(np.sort(data['theta_inputs_train']), 'o')
         plt.grid()
         plt.show()
+
+    if normalize:
+        data['r_train'] = data['r_train'] / np.mean(data['r_train'], 1)[:, None]
+        data['r_train'][np.isnan(data['r_train'])] = 0
+        data['r_test'] = data['r_test'] / np.mean(data['r_test'], 1)[:, None]
+        data['r_test'][np.isnan(data['r_test'])] = 0
     return data
 
 
 def load_rhi_thetas(path: str = 'RHI/data.npz') -> np.ndarray:
-    data = load_rhi_data(path)
+    data = load_rhi_data(path, normalize=False)
     return np.unique(data['theta_inputs_train'])
 
 
 def merge_training_data(rhi_path: str = 'RHI/data.npz',
-                        cpg_path: str = 'results/network_inverse_kinematic/') -> pd.DataFrame:
-    rhi_data = load_rhi_data(rhi_path)
+                        cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4',
+                        normalize_rhi_data: bool = True) -> pd.DataFrame:
+
+    rhi_data = load_rhi_data(rhi_path, normalize=normalize_rhi_data)
 
     # create rhi dataframe
     rhi_df = pd.DataFrame({
@@ -31,7 +42,11 @@ def merge_training_data(rhi_path: str = 'RHI/data.npz',
     })
 
     # create cpg dataframe
-    cpg_data = choose_run_with_lowest_error(cpg_path)
+    if cpg_path is None:
+        cpg_data = choose_run_with_lowest_error()
+    else:
+        cpg_data = load_inverse_kinematic_results(cpg_path)
+
     thetas = cpg_data['changed_angle']
     cpgs = cpg_data['cpg_params_to_goals'].reshape(thetas.shape[0], -1)
 
@@ -44,7 +59,7 @@ def merge_training_data(rhi_path: str = 'RHI/data.npz',
 
 
 def merge_test_data(rhi_path: str = 'RHI/data.npz',
-                    cpg_path: str = 'results/network_inverse_kinematic/') -> pd.DataFrame:
+                    cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4') -> pd.DataFrame:
     # create rhi dataframe
     rhi_data = load_rhi_data(rhi_path)
     rhi_df = pd.DataFrame({
@@ -54,7 +69,11 @@ def merge_test_data(rhi_path: str = 'RHI/data.npz',
     })
 
     # create cpg dataframe
-    cpg_data = choose_run_with_lowest_error(cpg_path)
+    if cpg_path is None:
+        cpg_data = choose_run_with_lowest_error()
+    else:
+        cpg_data = load_inverse_kinematic_results(cpg_path)
+
     thetas = cpg_data['changed_angle']
     cpgs = cpg_data['cpg_params_to_goals'].reshape(thetas.shape[0], -1)
 
@@ -71,6 +90,34 @@ def merge_test_data(rhi_path: str = 'RHI/data.npz',
     return pd.merge_asof(rhi_df, cpg_df, on='theta', direction='nearest')
 
 
+def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/' ) -> None:
+    import pickle
+
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    # Save the MLP
+    with open(save_path + 'mlp_model.pkl', 'wb') as f:
+        pickle.dump(mlp, f)
+
+    # Save the scaler
+    with open(save_path + 'scaler.pkl', 'wb') as f:
+        pickle.dump(scaler, f)
+
+
+def load_mlp(save_path: str = 'results/mlp_execute_movement/' ):
+    import pickle
+
+    with open(save_path + 'mlp_model.pkl', 'rb') as f:
+        mlp = pickle.load(f)
+
+    with open(save_path + 'scaler.pkl', 'rb') as f:
+        scaler = pickle.load(f)
+
+    return mlp, scaler
+
+
+# TODO: Implement version with categorical MLP (one hot encoding for categorical features)
 def train_mlp(trainings_df: pd.DataFrame,
               input_col: str = 'r_output',
               target_col: str = 'cpg_output',
@@ -113,6 +160,33 @@ def train_mlp(trainings_df: pd.DataFrame,
         print(f"Test MSE: {mse_test:.4f}\n")
 
     return mlp, scaler, mse_test
+
+
+def train_mlps(trainings_df: pd.DataFrame,
+               input_col: str = 'r_output',
+               target_col: str = 'cpg_output',
+               test_size: float = 0.2,
+               hidden_layer_sizes: tuple = (64, 64,),
+               max_iter: int = 100,
+               save_best_model: bool = True) -> tuple:
+
+    best_mlp, best_scaler, best_mse = None, None, np.inf
+    for _ in range(max_iter):
+        mlp, scaler, mse = train_mlp(trainings_df,
+                                     input_col=input_col,
+                                     target_col=target_col,
+                                     test_size=test_size,
+                                     hidden_layer_size=hidden_layer_sizes,
+                                     random_state=None, print_mse=False)
+        if mse < best_mse:
+            best_mse = mse
+            best_mlp = mlp
+            best_scaler = scaler
+
+    if save_best_model:
+        save_mlp(best_mlp, best_scaler)
+
+    return best_mlp, best_scaler
 
 
 def get_prediction(r_input: np.ndarray | list,
@@ -182,10 +256,10 @@ if __name__ == '__main__':
     test_df = merge_test_data()
 
     hidden_layer_sizes = (
-        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128), (256,), (256, 256),
+        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128),
     )
 
     for hidden_layer_size in hidden_layer_sizes:
-        mlp, scaler, _ = train_mlp(train_df, hidden_layer_size=hidden_layer_size, random_state=None)
+        mlp, scaler, _ = train_mlp(train_df, hidden_layer_size=hidden_layer_size, random_state=42)
 
-    test_mlp(test_df, mlp, scaler, test_id=0)
+    test_mlp(test_df, mlp, scaler)

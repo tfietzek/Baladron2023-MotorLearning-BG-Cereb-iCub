@@ -149,7 +149,8 @@ def inverse_kinematics(goal: np.ndarray,
                        initial_angles: np.ndarray,
                        abort_criterion: float = 1e-6,
                        max_iterations: int = 1_000,
-                       radians: bool = True) -> np.ndarray:
+                       radians: bool = True,
+                       angle_penalty: float = 1e-3) -> np.ndarray:
     """
     Returns CPG Parameters to a specific goal position
 
@@ -169,7 +170,7 @@ def inverse_kinematics(goal: np.ndarray,
     def objective_function(cpg_params: np.ndarray,
                            initial_angles: np.ndarray = initial_angles,
                            cpg_params_shape: tuple = pms_shape,
-                           angle_penalty: float = 1e-3) -> float:
+                           angle_penalty: float = angle_penalty) -> float:
         """
         Objective function to minimize
         """
@@ -229,6 +230,9 @@ min_angle = 15
 max_angle = 81
 step = 1
 angles = load_rhi_thetas()
+if int(run_id) % 2 == 0:
+    angles = angles[::-1]
+
 
 init_pms = readout_CPG()
 for ang in angles:
@@ -241,7 +245,8 @@ for ang in angles:
                              initial_angles=np.array(initial_angles),
                              max_iterations=1_000_000,
                              abort_criterion=1e-8,
-                             radians=False)
+                             radians=False,
+                             angle_penalty=1e-2)
 
     reached, _ = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
     error = np.linalg.norm(goal - reached)

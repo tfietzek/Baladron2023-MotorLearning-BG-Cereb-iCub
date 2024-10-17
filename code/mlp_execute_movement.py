@@ -1,6 +1,6 @@
 import importlib
 import os.path
-
+from typing import Optional
 import pandas as pd
 import numpy as np
 
@@ -17,7 +17,7 @@ from CPG_lib.MLMPCPG.myPloting import *
 from CPG_lib.MLMPCPG.SetTiming import *
 from scipy.optimize import minimize
 
-from mlp_inverse_fit import train_mlp, test_mlp, merge_training_data, merge_test_data, get_prediction
+from mlp_inverse_fit import train_mlp, test_mlp, train_mlps, merge_training_data, merge_test_data, get_prediction
 
 
 def plot_reaching_error_on_test_data(test_path: str = 'results/mlp_execute_movement/results_on_test_set.npz',
@@ -76,8 +76,7 @@ def plot_reaching_error_on_train_data(train_path: str = 'results/mlp_execute_mov
 
 def ols_reach_error(test_data_path: str = 'results/mlp_execute_movement/results_on_test_set.npz',
                     show_plot: bool = False,
-                    use_abs_diff: bool = True) -> tuple[float, float]:
-
+                    use_abs_diff: bool = False) -> tuple[float, float]:
     from scipy import stats
     import statsmodels.api as sm
 
@@ -120,48 +119,35 @@ def ols_reach_error(test_data_path: str = 'results/mlp_execute_movement/results_
     return correlation_coefficient, p_value
 
 
-def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/' ) -> None:
-    import pickle
+def execute_movement_with_mlp_on_test_set(
+        df_inputs: pd.DataFrame,
+        mlp,
+        scaler,
+        goal: np.ndarray = np.array([-0.25, 0.1, 0.15]),
+        n_samples: Optional[int] = None,
+        folder: str = 'results/mlp_execute_movement/'
+) -> None:
+    if n_samples is not None:
+        df_inputs = df_inputs.sample(n_samples)
 
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    # get cpg prediction
+    r_input = df_inputs['r_output'].tolist()
+    df_inputs['cpg_pred'] = get_prediction(r_input, mlp, scaler).tolist()
 
-    # Save the MLP
-    with open(save_path + 'mlp_model.pkl', 'wb') as f:
-        pickle.dump(mlp, f)
-
-    # Save the scaler
-    with open(save_path + 'scaler.pkl', 'wb') as f:
-        pickle.dump(scaler, f)
-
-
-def load_mlp(save_path: str = 'results/mlp_execute_movement/' ):
-    import pickle
-
-    with open(save_path + 'mlp_model.pkl', 'rb') as f:
-        mlp = pickle.load(f)
-
-    with open(save_path + 'scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-
-    return mlp, scaler
-
-
-if __name__ == '__main__':
-    # Parameters
-    n_samples: None | int = None  # number of samples to test the movement. If None, all samples are used
-    save_best_model: bool = True
-    print_error: bool = False
-
-    # load data
-    train_df = merge_training_data()
-
-    # Initialize robot connection
-    sys.path.append('../../CPG_lib/MLMPCPG')
-    sys.path.append('../../CPG_lib/icubPlot')
-    iCubMotor = importlib.import_module(params.iCub_joint_names)
+    # save results in this dict
+    results_test_set = {
+        'goal': goal,
+        'initial_angles': [],
+        'proprio_angles': [],
+        'vision_angles': [],
+        'reached_pos': [],
+        'reached_angles': [],
+        'errors': [],
+    }
 
     # init icub + cpg
+    iCubMotor = importlib.import_module(params.iCub_joint_names)
+
     joint1 = iCubMotor.RShoulderPitch
     joint2 = iCubMotor.RShoulderRoll
     joint3 = iCubMotor.RShoulderYaw
@@ -177,89 +163,9 @@ if __name__ == '__main__':
     kin_read.set_jointangles(init_pos_arm)
     kin_read.block_links([7, 8, 9])
 
-    goal = np.array([-0.25, 0.1, 0.15])
-
-    # train mlp
-    print("Training MLP")
-    max_iter = 50
-    best_mlp, best_scaler, best_mse = None, None, np.inf
-    for _ in range(max_iter):
-        mlp, scaler, mse = train_mlp(train_df, hidden_layer_size=(256, 256), random_state=None, print_mse=False)
-        if mse < best_mse:
-            best_mse = mse
-            best_mlp = mlp
-            best_scaler = scaler
-
-    if save_best_model:
-        save_mlp(best_mlp, best_scaler)
-    print(f"Best MLP MSE: {best_mse}\n")
-
-    # test mlp with train input
-    print("Testing MLP with train data...")
-    if n_samples is None:
-        df_inputs = train_df
-    else:
-        df_inputs = train_df.sample(n=n_samples)
-
-    results_training_set = {
-        'goal': goal,
-        'initial_angles': [],
-        'proprio_angles': [],
-        'reached_pos': [],
-        'reached_angles': [],
-        'errors': [],
-    }
-
     for index, row in df_inputs.iterrows():
         initial_angles[3] = row['theta']
-
-        r_input = np.array(row['r_output'])
-        cpg_pred = get_prediction(r_input, best_mlp, best_scaler, cpg_reshape=True)
-
-        # execute movement
-        reached, reached_angles = execute_movement(pms=cpg_pred, current_angles=initial_angles, radians=False)
-
-        results_training_set['initial_angles'].append(initial_angles)
-        results_training_set['reached_pos'].append(reached)
-        results_training_set['reached_angles'].append(reached_angles)
-        results_training_set['proprio_angles'].append(row['theta'])
-
-        # calculate error
-        results_training_set['errors'].append(np.linalg.norm(goal - reached))
-
-        if print_error:
-            print(f'Error: {results_training_set["errors"][-1]}')
-
-    folder = 'results/mlp_execute_movement/'
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    np.savez(folder + 'results_on_training_set.npz', **results_training_set)
-
-    plot_reaching_error_on_train_data(train_path=folder + 'results_on_training_set.npz', show_plot=False)
-
-    # test mlp with test inputs
-    print("Testing MLP with test data...")
-    if n_samples is None:
-        df_inputs = merge_test_data()
-    else:
-        df_inputs = merge_test_data().sample(n=n_samples)
-
-    results_test_set = {
-        'goal': goal,
-        'initial_angles': [],
-        'proprio_angles': [],
-        'vision_angles': [],
-        'reached_pos': [],
-        'reached_angles': [],
-        'errors': [],
-    }
-
-    for index, row in df_inputs.iterrows():
-        initial_angles[3] = row['theta']
-
-        r_input = np.array(row['r_output'])
-        cpg_pred = get_prediction(r_input, best_mlp, best_scaler, cpg_reshape=True)
+        cpg_pred = np.array(row['cpg_pred']).reshape(4, 6)
 
         # execute movement
         reached, reached_angles = execute_movement(pms=cpg_pred, current_angles=initial_angles, radians=False)
@@ -273,10 +179,25 @@ if __name__ == '__main__':
         # calculate error
         results_test_set['errors'].append(np.linalg.norm(goal - reached))
 
-        if print_error:
-            print(f'Error: {results_test_set["errors"][-1]}')
-
+    # save results
+    if not os.path.exists(folder):
+        os.makedirs(folder)
     np.savez(folder + 'results_on_test_set.npz', **results_test_set)
 
     plot_reaching_error_on_test_data(folder + 'results_on_test_set.npz', show_plot=False)
-    ols_reach_error(folder + 'results_on_test_set.npz', show_plot=False)
+    ols_reach_error(folder + 'results_on_test_set.npz', show_plot=False, use_abs_diff=True)
+
+
+if __name__ == '__main__':
+    df_train = merge_training_data()
+    df_test = merge_test_data()
+
+    mlp, scaler = train_mlps(df_train,
+                             input_col='r_output',
+                             target_col='cpg_output',
+                             test_size=0.2,
+                             hidden_layer_sizes=(128, 128, 128),
+                             max_iter=25,
+                             save_best_model=True)
+
+    execute_movement_with_mlp_on_test_set(df_test, mlp, scaler, n_samples=None)
