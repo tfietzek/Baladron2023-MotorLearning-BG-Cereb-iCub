@@ -7,9 +7,9 @@ import os
 from plot_error_inverse_kinematics import choose_run_with_lowest_error, load_inverse_kinematic_results
 
 
-def load_rhi_data(path: str = 'RHI/data.npz',
+def load_rhi_data(path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
                   debug: bool = False,
-                  normalize: bool = True) -> dict:
+                  normalize: bool = False) -> dict:
     data = np.load(path, allow_pickle=True)['arr_0'].item()
     if debug:
         plt.plot(np.sort(data['theta_inputs_train']), 'o')
@@ -19,26 +19,30 @@ def load_rhi_data(path: str = 'RHI/data.npz',
     if normalize:
         data['r_train'] = data['r_train'] / np.mean(data['r_train'], 1)[:, None]
         data['r_train'][np.isnan(data['r_train'])] = 0
-        data['r_test'] = data['r_test'] / np.mean(data['r_test'], 1)[:, None]
-        data['r_test'][np.isnan(data['r_test'])] = 0
+        data['r_RHI'] = data['r_RHI'] / np.mean(data['r_RHI'], 1)[:, None]
+        data['r_RHI'][np.isnan(data['r_RHI'])] = 0
     return data
 
 
-def load_rhi_thetas(path: str = 'RHI/data.npz') -> np.ndarray:
+def load_training_rhi_thetas(path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz') -> np.ndarray:
     data = load_rhi_data(path, normalize=False)
-    return np.unique(data['theta_inputs_train'])
+    thetas = data['theta_proprioception_inputs_test'][data['theta_proprioception_inputs_test'] == data['theta_vision_inputs_test']]
+    return np.unique(thetas)
 
 
-def merge_training_data(rhi_path: str = 'RHI/data.npz',
+def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
                         cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4',
-                        normalize_rhi_data: bool = True) -> pd.DataFrame:
-
-    rhi_data = load_rhi_data(rhi_path, normalize=normalize_rhi_data)
+                        normalize_rhi_data: bool = False) -> pd.DataFrame:
 
     # create rhi dataframe
+    rhi_data = load_rhi_data(rhi_path, normalize=normalize_rhi_data)
+
+    # train only on thetas that are the same
+    bool_mask = rhi_data['theta_proprioception_inputs_test'] == rhi_data['theta_vision_inputs_test']
+
     rhi_df = pd.DataFrame({
-        'theta': rhi_data['theta_inputs_train'],
-        'r_output': rhi_data['r_train'].tolist(),
+        'theta': rhi_data['theta_proprioception_inputs_test'][bool_mask],
+        'r_output': rhi_data['r_RHI_norm'][bool_mask].tolist(),
     })
 
     # create cpg dataframe
@@ -59,13 +63,19 @@ def merge_training_data(rhi_path: str = 'RHI/data.npz',
 
 
 def merge_test_data(rhi_path: str = 'RHI/data.npz',
-                    cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4') -> pd.DataFrame:
+                    cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4',
+                    merge_nearest_neighbor: bool = False) -> pd.DataFrame:
+
     # create rhi dataframe
     rhi_data = load_rhi_data(rhi_path)
+
+    # test only on thetas that are not the same
+    bool_mask = rhi_data['theta_proprioception_inputs_test'] != rhi_data['theta_vision_inputs_test']
+
     rhi_df = pd.DataFrame({
-        'theta': rhi_data['theta_proprioception_inputs_test'],
-        'vision_theta': rhi_data['theta_vision_inputs_test'],
-        'r_output': rhi_data['r_test'].tolist(),
+        'theta': rhi_data['theta_proprioception_inputs_test'][bool_mask],
+        'vision_theta': rhi_data['theta_vision_inputs_test'][bool_mask],
+        'r_output': rhi_data['r_RHI_norm'][bool_mask].tolist(),
     })
 
     # create cpg dataframe
@@ -87,10 +97,13 @@ def merge_test_data(rhi_path: str = 'RHI/data.npz',
     cpg_df = cpg_df.sort_values('theta')
 
     # Perform the merge
-    return pd.merge_asof(rhi_df, cpg_df, on='theta', direction='nearest')
+    if merge_nearest_neighbor:
+        return pd.merge_asof(rhi_df, cpg_df, on='theta', direction='nearest')
+    else:
+        return pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
 
-def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/' ) -> None:
+def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/') -> None:
     import pickle
 
     if not os.path.exists(save_path):
@@ -105,7 +118,7 @@ def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/' ) -> 
         pickle.dump(scaler, f)
 
 
-def load_mlp(save_path: str = 'results/mlp_execute_movement/' ):
+def load_mlp(save_path: str = 'results/mlp_execute_movement/'):
     import pickle
 
     with open(save_path + 'mlp_model.pkl', 'rb') as f:

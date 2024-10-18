@@ -23,7 +23,7 @@ setup(num_threads=2)
 from kinematic import *
 from cpg import *
 from train_BG_reaching import execute_movement, random_goal2_iCub
-from mlp_inverse_fit import load_rhi_thetas
+from mlp_inverse_fit import load_training_rhi_thetas
 
 # CPG
 import CPG_lib.parameter as params
@@ -210,6 +210,7 @@ inverse_results = {
     'changed_angle': [],
     'goals': [],
     'goals_reached': [],
+    'reached_angles': [],
     'error': [],
     'cpg_params_to_goals': [],
     'cpg_params_init': [],
@@ -229,7 +230,7 @@ goal = np.array([-0.25, 0.1, 0.15])
 min_angle = 15
 max_angle = 81
 step = 1
-angles = load_rhi_thetas()
+angles = load_training_rhi_thetas()
 if int(run_id) % 2 == 0:
     angles = angles[::-1]
 
@@ -248,7 +249,7 @@ for ang in angles:
                              radians=False,
                              angle_penalty=1e-2)
 
-    reached, _ = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
+    reached, reached_angle = execute_movement(np.reshape(pms, (4, 6)), initial_angles, radians=False)
     error = np.linalg.norm(goal - reached)
 
     if debug:
@@ -260,6 +261,7 @@ for ang in angles:
     inverse_results['changed_angle'].append(ang)
     inverse_results['goals'].append(goal)
     inverse_results['goals_reached'].append(reached)
+    inverse_results['reached_angles'].append(reached_angle)
     inverse_results['cpg_params_to_goals'].append(pms.reshape(4, 6))
     inverse_results['cpg_params_init'].append(init_pms)
     inverse_results['error'].append(error)
