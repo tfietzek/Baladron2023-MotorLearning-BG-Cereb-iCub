@@ -40,7 +40,7 @@ debug: bool = False
 if data_set == 'RHI_j11_sigma2':
     rhi_data_path = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz'
 elif data_set == 'RHI_j12_sigma4':
-    rhi_data_path = 'data_out/data_RHI_jitter_1_1_sigma_prop_4.npz'
+    rhi_data_path = 'data_out/data_RHI_jitter_1_2_sigma_prop_4.npz'
 else:
     raise ValueError('data_set must be 0 or 1')
 
