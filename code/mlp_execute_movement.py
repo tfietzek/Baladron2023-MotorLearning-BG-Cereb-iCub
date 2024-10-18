@@ -8,7 +8,7 @@ import numpy as np
 from kinematic import *
 from cpg import *
 from train_BG_reaching import execute_movement, random_goal2_iCub
-from mlp_inverse_fit import load_training_rhi_thetas
+from mlp_inverse_fit import load_training_rhi_thetas, save_mlp
 
 # CPG
 import CPG_lib.parameter as params
@@ -35,14 +35,16 @@ def plot_reaching_error_on_test_data(test_path: str = 'results/mlp_execute_movem
     })
 
     plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(df['proprio'], df['error'], c=np.abs(df['diff']), cmap='RdBu_r')
+    scatter = plt.scatter(df['proprio'] + np.random.uniform(low=-0.34, high=0.34, size=len(df)), df['error'], c=np.abs(df['diff']), cmap='RdBu_r', s=2.)
     plt.colorbar(scatter, label='diff')
 
     plt.xlabel('Proprio theta in [°]')
     plt.ylabel('Error in [m]')
 
     plt.tight_layout()
-    plt.savefig('results/mlp_execute_movement/reaching_error_on_test_set.pdf', dpi=300, bbox_inches='tight')
+
+    path, _ = os.path.split(test_path)
+    plt.savefig(path + '/reaching_error_on_test_set.pdf', dpi=300, bbox_inches='tight')
 
     if show_plot:
         plt.show()
@@ -68,7 +70,9 @@ def plot_reaching_error_on_train_data(train_path: str = 'results/mlp_execute_mov
     plt.ylabel('Error in [m]')
 
     plt.tight_layout()
-    plt.savefig('results/mlp_execute_movement/reaching_error_on_train_set.pdf', dpi=300, bbox_inches='tight')
+
+    path, _ = os.path.split(train_path)
+    plt.savefig(path + '/reaching_error_on_train_set.pdf', dpi=300, bbox_inches='tight')
 
     if show_plot:
         plt.show()
@@ -104,7 +108,7 @@ def ols_reach_error(test_data_path: str = 'results/mlp_execute_movement/results_
 
     # Create a scatter plot with the regression line
     plt.figure(figsize=(10, 6))
-    plt.scatter(df['diff'], df['error'], alpha=0.5)
+    plt.scatter(df['diff'], df['error'], alpha=0.5, s=2.)
     plt.plot(df['diff'], model.predict(X), color='red', linewidth=2)
 
     plt.xlabel('Diff')
@@ -112,7 +116,8 @@ def ols_reach_error(test_data_path: str = 'results/mlp_execute_movement/results_
     plt.title(f'OLS Regression, r={correlation_coefficient:.3f}, p={p_value:.3f}')
 
     plt.tight_layout()
-    plt.savefig('results/mlp_execute_movement/ols_reach_error.pdf', dpi=300, bbox_inches='tight')
+    path, _ = os.path.split(test_data_path)
+    plt.savefig(path + '/ols_reach_error.pdf', dpi=300, bbox_inches='tight')
     if show_plot:
         plt.show()
 
@@ -184,20 +189,44 @@ def execute_movement_with_mlp_on_test_set(
         os.makedirs(folder)
     np.savez(folder + 'results_on_test_set.npz', **results_test_set)
 
-    plot_reaching_error_on_test_data(folder + 'results_on_test_set.npz', show_plot=False)
-    ols_reach_error(folder + 'results_on_test_set.npz', show_plot=False, use_abs_diff=True)
+    plot_reaching_error_on_test_data(test_path=folder + 'results_on_test_set.npz', show_plot=False)
+    ols_reach_error(test_data_path=folder + 'results_on_test_set.npz', show_plot=False, use_abs_diff=True)
 
 
 if __name__ == '__main__':
-    df_train = merge_training_data()
-    df_test = merge_test_data()
 
-    mlp, scaler = train_mlps(df_train,
-                             input_col='r_output',
-                             target_col='cpg_output',
-                             test_size=0.2,
-                             hidden_layer_sizes=(128, 128, 128),
-                             max_iter=25,
-                             save_best_model=True)
+    hidden_layer_sizes = ((64, 64, ), (128, 128,),  (128, 64,), (256, 256,), (256, 128,), (256, 64,),
+                          (512, 512,), (512, 256,), (512, 128,), (512, 64,))
 
-    execute_movement_with_mlp_on_test_set(df_test, mlp, scaler, n_samples=None)
+    # data paths
+    inverse_data_paths = ('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1',
+                          'results/RHI_j12_sigma4/network_inverse_kinematic/inverse_results_run7')
+    rhi_paths = ('data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+                 'data_out/data_RHI_jitter_1_2_sigma_prop_4.npz')
+    data_sets = ('RHI_j11_sigma2', 'RHI_j12_sigma4')
+
+    for inv_path, rhi_path, data_set in zip(inverse_data_paths, rhi_paths, data_sets):
+
+        df_train = merge_training_data(rhi_path=rhi_path, cpg_path=inv_path)
+        df_test = merge_test_data(rhi_path=rhi_path, cpg_path=inv_path)
+
+        for hidden_layer_size in hidden_layer_sizes:
+            # save results in this folder
+            folder = f'results/{data_set}/mlp_shape[{hidden_layer_size[0],hidden_layer_size[1]}]/'
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+            # train mlp
+            print(f'Training MLP with hidden layer size: {hidden_layer_size}')
+            mlp, scaler = train_mlps(df_train,
+                                     hidden_layer_size=hidden_layer_size,
+                                     max_iter=5,
+                                     test_size=0.2)
+
+            save_mlp(mlp, scaler, save_path=folder)
+
+            # test mlp on test set
+            print('Test MLP on test set')
+            execute_movement_with_mlp_on_test_set(df_test, mlp, scaler,
+                                                  n_samples=None,
+                                                  folder=folder)

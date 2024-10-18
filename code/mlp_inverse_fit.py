@@ -31,7 +31,7 @@ def load_training_rhi_thetas(path: str = 'data_out/data_RHI_jitter_1_1_sigma_pro
 
 
 def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
-                        cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4',
+                        cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
                         normalize_rhi_data: bool = False) -> pd.DataFrame:
 
     # create rhi dataframe
@@ -62,8 +62,8 @@ def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop
     return pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
 
-def merge_test_data(rhi_path: str = 'RHI/data.npz',
-                    cpg_path: Optional[str] = 'results/network_inverse_kinematic/inverse_results_run4',
+def merge_test_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+                    cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
                     merge_nearest_neighbor: bool = False) -> pd.DataFrame:
 
     # create rhi dataframe
@@ -148,7 +148,7 @@ def train_mlp(trainings_df: pd.DataFrame,
     y = np.array(trainings_df[target_col].tolist())
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=True)
 
     # Scale the features
     scaler = StandardScaler()
@@ -179,9 +179,8 @@ def train_mlps(trainings_df: pd.DataFrame,
                input_col: str = 'r_output',
                target_col: str = 'cpg_output',
                test_size: float = 0.2,
-               hidden_layer_sizes: tuple = (64, 64,),
-               max_iter: int = 100,
-               save_best_model: bool = True) -> tuple:
+               hidden_layer_size: tuple = (64, 64,),
+               max_iter: int = 100) -> tuple:
 
     best_mlp, best_scaler, best_mse = None, None, np.inf
     for _ in range(max_iter):
@@ -189,15 +188,12 @@ def train_mlps(trainings_df: pd.DataFrame,
                                      input_col=input_col,
                                      target_col=target_col,
                                      test_size=test_size,
-                                     hidden_layer_size=hidden_layer_sizes,
+                                     hidden_layer_size=hidden_layer_size,
                                      random_state=None, print_mse=False)
         if mse < best_mse:
             best_mse = mse
             best_mlp = mlp
             best_scaler = scaler
-
-    if save_best_model:
-        save_mlp(best_mlp, best_scaler)
 
     return best_mlp, best_scaler
 
@@ -269,10 +265,10 @@ if __name__ == '__main__':
     test_df = merge_test_data()
 
     hidden_layer_sizes = (
-        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128),
+        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128), (256,), (256, 256), (512,), (512, 512)
     )
 
     for hidden_layer_size in hidden_layer_sizes:
-        mlp, scaler, _ = train_mlp(train_df, hidden_layer_size=hidden_layer_size, random_state=42)
+        mlp, scaler, _ = train_mlp(train_df, hidden_layer_size=hidden_layer_size, random_state=42, test_size=0.3)
 
     test_mlp(test_df, mlp, scaler)
