@@ -37,11 +37,11 @@ run_id = sys.argv[1]
 debug: bool = False
 
 # Prepare save directory
-folder_net = './results/network_inverse_kinematic'
+folder_net = './results/RHI_j11_sigma2/network_inverse_kinematic'
 Path(folder_net).mkdir(parents=True, exist_ok=True)
 
 # Compile the network
-compile_folder = f'./annarchy/inverse_kinematic_run{run_id}'
+compile_folder = f'./annarchy/RHI_j11_sigma2/inverse_kinematic_run{run_id}'
 Path(compile_folder).mkdir(parents=True, exist_ok=True)
 compile(directory=compile_folder)
 
