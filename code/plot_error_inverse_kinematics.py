@@ -3,8 +3,8 @@ import numpy as np
 from glob import glob
 
 
-def plot_error_inverse_kinematics(runs: tuple = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
-                                  path: str = 'results/network_inverse_kinematic/'):
+def plot_error_inverse_kinematics(runs: tuple = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+                                  path: str = 'results/RHI_j11_sigma2/network_inverse_kinematic/'):
 
     fig, axs = plt.subplots(nrows=len(runs), ncols=1, figsize=(12, 4), sharex=True)
 
@@ -25,7 +25,7 @@ def load_inverse_kinematic_results(file_path: str) -> dict:
     return np.load(file_path)
 
 
-def choose_run_with_lowest_error(path: str = 'results/network_inverse_kinematic/'):
+def choose_run_with_lowest_error(path: str = 'results/RHI_j11_sigma2/network_inverse_kinematic/'):
     pattern = path + 'inverse_results_run*.npz'
 
     lowest_error = np.inf
@@ -43,4 +43,5 @@ def choose_run_with_lowest_error(path: str = 'results/network_inverse_kinematic/
 
 
 if __name__ == '__main__':
-    plot_error_inverse_kinematics()
+    plot_error_inverse_kinematics(path='results/RHI_j11_sigma2/network_inverse_kinematic/')
+    plot_error_inverse_kinematics(path='results/RHI_j12_sigma4/network_inverse_kinematic/')

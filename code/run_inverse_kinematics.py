@@ -235,9 +235,6 @@ kin_read.block_links([7, 8, 9])
 
 goal = np.array([-0.25, 0.1, 0.15])
 
-min_angle = 15
-max_angle = 81
-step = 1
 angles = load_training_rhi_thetas(path=rhi_data_path)
 if int(run_id) % 2 == 0:
     angles = angles[::-1]
