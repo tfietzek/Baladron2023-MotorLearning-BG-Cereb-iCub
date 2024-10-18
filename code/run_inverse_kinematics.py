@@ -34,14 +34,22 @@ from scipy.optimize import minimize
 
 # find cpg parameters to how many random targets?
 run_id = sys.argv[1]
+data_set = ['RHI_j11_sigma2', 'RHI_j12_sigma4'][int(sys.argv[2])]
 debug: bool = False
 
+if data_set == 'RHI_j11_sigma2':
+    rhi_data_path = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz'
+elif data_set == 'RHI_j12_sigma4':
+    rhi_data_path = 'data_out/data_RHI_jitter_1_1_sigma_prop_4.npz'
+else:
+    raise ValueError('data_set must be 0 or 1')
+
 # Prepare save directory
-folder_net = './results/RHI_j11_sigma2/network_inverse_kinematic'
+folder_net = f'./results/{data_set}/network_inverse_kinematic'
 Path(folder_net).mkdir(parents=True, exist_ok=True)
 
 # Compile the network
-compile_folder = f'./annarchy/RHI_j11_sigma2/inverse_kinematic_run{run_id}'
+compile_folder = f'./annarchy/{data_set}/inverse_kinematic_run{run_id}'
 Path(compile_folder).mkdir(parents=True, exist_ok=True)
 compile(directory=compile_folder)
 
@@ -230,7 +238,7 @@ goal = np.array([-0.25, 0.1, 0.15])
 min_angle = 15
 max_angle = 81
 step = 1
-angles = load_training_rhi_thetas()
+angles = load_training_rhi_thetas(path=rhi_data_path)
 if int(run_id) % 2 == 0:
     angles = angles[::-1]
 

@@ -2,6 +2,7 @@
 
 parallel=$1
 durchgaenge=$2
+data_set=$3
 
 # Function to convert seconds to days:hours:minutes format
 seconds_to_dhm() {
@@ -27,7 +28,7 @@ for durchgang in $(seq $durchgaenge); do
 
     for i in $(seq $parallel); do
         let y=$i+$parallel*$((durchgang - 1))
-        python run_inverse_kinematics.py $y &
+        python run_inverse_kinematics.py $y $data_set &
     done
     wait
 
