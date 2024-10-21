@@ -3,6 +3,7 @@ import os.path
 from typing import Optional
 import pandas as pd
 import numpy as np
+import gc
 
 # Model
 from kinematic import *
@@ -192,18 +193,21 @@ def execute_movement_with_mlp_on_test_set(
     plot_reaching_error_on_test_data(test_path=folder + 'results_on_test_set.npz', show_plot=False)
     ols_reach_error(test_data_path=folder + 'results_on_test_set.npz', show_plot=False, use_abs_diff=True)
 
+    # clean
+    del results_test_set
+    gc.collect()
+
 
 if __name__ == '__main__':
 
-    hidden_layer_sizes = ((64, 64, ), (128, 128,),  (128, 64,), (256, 256,), (256, 128,), (256, 64,),
-                          (512, 512,), (512, 256,), (512, 128,), (512, 64,))
+    hidden_layer_sizes = ((64, 64,), (128, 128,), (128, 64,), (256, 256,), (256, 128,), (256, 64,),)
 
     # data paths
     inverse_data_paths = ('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1',
-                          'results/RHI_j12_sigma4/network_inverse_kinematic/inverse_results_run7')
+                          'results/RHI_j12_sigma4/network_inverse_kinematic/inverse_results_run7')[::-1]
     rhi_paths = ('data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
-                 'data_out/data_RHI_jitter_1_2_sigma_prop_4.npz')
-    data_sets = ('RHI_j11_sigma2', 'RHI_j12_sigma4')
+                 'data_out/data_RHI_jitter_1_2_sigma_prop_4.npz')[::-1]
+    data_sets = ('RHI_j11_sigma2', 'RHI_j12_sigma4')[::-1]
 
     for inv_path, rhi_path, data_set in zip(inverse_data_paths, rhi_paths, data_sets):
 
@@ -228,5 +232,5 @@ if __name__ == '__main__':
             # test mlp on test set
             print('Test MLP on test set')
             execute_movement_with_mlp_on_test_set(df_test, mlp, scaler,
-                                                  n_samples=None,
+                                                  n_samples=500_000,
                                                   folder=folder)
