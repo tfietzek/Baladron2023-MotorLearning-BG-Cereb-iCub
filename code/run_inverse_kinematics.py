@@ -226,11 +226,11 @@ inverse_results = {
 
 initial_angles = np.zeros(params.number_cpg)
 
-init_pos_arm = np.array([-49., 60., 66., 15., -60., -5., -5.])
+init_pos_arm = np.array([-49., 60., 66., 15., -50., -5., -5.])
 initial_angles[:init_pos_arm.shape[0]] = init_pos_arm
 
 kin_read.release_links([7, 8, 9])
-kin_read.set_jointangles(init_pos_arm)
+kin_read.set_jointangles(np.radians(init_pos_arm))
 kin_read.block_links([7, 8, 9])
 
 goal = np.array([-0.25, 0.1, 0.15])
