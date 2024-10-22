@@ -45,5 +45,3 @@ for durchgang in $(seq $durchgaenge); do
 
     sleep 5
 done
-
-python mlp_execute_movement.py
