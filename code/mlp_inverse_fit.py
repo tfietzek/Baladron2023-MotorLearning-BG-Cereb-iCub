@@ -1,10 +1,71 @@
-import numpy as np
 import pandas as pd
+import importlib
 import matplotlib.pyplot as plt
 from typing import Optional
 import os
 
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPRegressor, MLPClassifier
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.metrics import mean_squared_error
+
+import CPG_lib.parameter as params
+from kinematic import *
+from train_BG_reaching import execute_movement
 from plot_error_inverse_kinematics import choose_run_with_lowest_error, load_inverse_kinematic_results
+
+
+def make_reaching_error_data(
+        cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
+        goal: np.ndarray = np.array((-0.25, 0.1, 0.15))
+):
+
+    # init data
+    if cpg_path is None:
+        cpg_data = choose_run_with_lowest_error()
+    else:
+        cpg_data = load_inverse_kinematic_results(cpg_path)
+
+    # make column for possible reaching errors
+    cpg_data['reaching_error'] = []
+
+    # init icub + cpg
+    iCubMotor = importlib.import_module(params.iCub_joint_names)
+
+    joint1 = iCubMotor.RShoulderPitch
+    joint2 = iCubMotor.RShoulderRoll
+    joint3 = iCubMotor.RShoulderYaw
+    joint4 = iCubMotor.RElbow
+
+    joints = [joint1, joint2, joint3, joint4]
+    initial_angles = np.zeros(params.number_cpg)
+
+    init_pos_arm = np.array([-49., 60., 66., 15., -50., -5., -5.])
+    initial_angles[:init_pos_arm.shape[0]] = init_pos_arm
+
+    kin_read.release_links([7, 8, 9])
+    kin_read.set_jointangles(np.radians(init_pos_arm))
+    kin_read.block_links([7, 8, 9])
+
+    for cpg_param in cpg_data['cpg_params_to_goals']:
+        reaching_errors = []
+
+        for init_angle in cpg_data['initial_angle']:
+            if cpg_param.shape != (4, 6):
+                cpg_param = cpg_param.reshape(4, 6)
+
+            # execute movement
+            reached, reached_angles = execute_movement(pms=cpg_param, current_angles=init_angle, radians=False)
+
+            # compute error
+            error = np.linalg.norm(goal - reached)
+            reaching_errors.append(error)
+
+        cpg_data['reaching_error'].append(reaching_errors)
+
+    # save
+    path, _ = os.path.split(cpg_path)
+    np.savez(path + '/best_inverse_results.npz', **cpg_data)
 
 
 def load_rhi_data(path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
@@ -31,8 +92,11 @@ def load_training_rhi_thetas(path: str = 'data_out/data_RHI_jitter_1_1_sigma_pro
 
 
 def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
-                        cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
+                        cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results',
                         normalize_rhi_data: bool = False) -> pd.DataFrame:
+
+    if not os.path.isfile(cpg_path):
+        make_reaching_error_data()
 
     # create rhi dataframe
     rhi_data = load_rhi_data(rhi_path, normalize=normalize_rhi_data)
@@ -52,12 +116,12 @@ def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop
         cpg_data = load_inverse_kinematic_results(cpg_path)
 
     thetas = cpg_data['changed_angle']
-    cpgs = cpg_data['cpg_params_to_goals'].reshape(thetas.shape[0], -1)
-
     cpg_df = pd.DataFrame({
         'theta': thetas,
-        'cpg_output': cpgs.tolist(),
+        'reaching_error': cpg_data['reaching_error'].tolist(),
+        'category': np.arange(0, thetas.shape[0])
     })
+
 
     return pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
@@ -65,6 +129,9 @@ def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop
 def merge_test_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
                     cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
                     merge_nearest_neighbor: bool = False) -> pd.DataFrame:
+
+    if not os.path.isfile(cpg_path):
+        make_reaching_error_data()
 
     # create rhi dataframe
     rhi_data = load_rhi_data(rhi_path)
@@ -85,11 +152,10 @@ def merge_test_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.n
         cpg_data = load_inverse_kinematic_results(cpg_path)
 
     thetas = cpg_data['changed_angle']
-    cpgs = cpg_data['cpg_params_to_goals'].reshape(thetas.shape[0], -1)
-
     cpg_df = pd.DataFrame({
         'theta': thetas,
-        'cpg_output': cpgs.tolist(),
+        'reaching_error': cpg_data['reaching_error'].tolist(),
+        'category': np.arange(0, thetas.shape[0])
     })
 
     # Sort both DataFrames by the 'theta' column. This is required for merge_asof to work correctly.
@@ -133,16 +199,11 @@ def load_mlp(save_path: str = 'results/mlp_execute_movement/'):
 # TODO: Implement version with categorical MLP (one hot encoding for categorical features)
 def train_mlp(trainings_df: pd.DataFrame,
               input_col: str = 'r_output',
-              target_col: str = 'cpg_output',
+              target_col: str = 'category',
               test_size: float = 0.2,
-              hidden_layer_size: tuple = (64, 64,),
+              hidden_layer_size: tuple = (128, 128,),
               random_state: Optional[int] = 42,
               print_mse: bool = True) -> tuple:
-
-    from sklearn.model_selection import train_test_split
-    from sklearn.neural_network import MLPRegressor
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.metrics import mean_squared_error
 
     X = np.array(trainings_df[input_col].tolist())
     y = np.array(trainings_df[target_col].tolist())
@@ -177,9 +238,9 @@ def train_mlp(trainings_df: pd.DataFrame,
 
 def train_mlps(trainings_df: pd.DataFrame,
                input_col: str = 'r_output',
-               target_col: str = 'cpg_output',
+               target_col: str = 'category',
                test_size: float = 0.2,
-               hidden_layer_size: tuple = (64, 64,),
+               hidden_layer_size: tuple = (128, 128,),
                max_iter: int = 100) -> tuple:
 
     best_mlp, best_scaler, best_mse = None, None, np.inf
