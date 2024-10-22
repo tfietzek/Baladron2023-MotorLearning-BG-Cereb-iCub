@@ -48,6 +48,7 @@ if __name__ == '__main__':
                 'error': data['errors']
             })
 
+            #data_df = data_df[data_df['theta'] < 30.]
             # Calculate mean error and standard error for each diff
             error_stats = data_df.groupby('diff')['error'].agg(['mean', 'std']).reset_index()
             error_stats.columns = ['diff', f'mean_error_{hidden_layer_size}', f'std_error_{hidden_layer_size}']
@@ -73,6 +74,7 @@ if __name__ == '__main__':
     plt.savefig('combined_mean_error_plot.pdf', dpi=300, bbox_inches='tight')
     plt.show()
 
+    # Plot distance to goal
     data = np.load('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1.npz')
     df = pd.DataFrame({
         'changed_angle': data['changed_angle'],
@@ -80,4 +82,9 @@ if __name__ == '__main__':
         'distance': np.linalg.norm(data['goals_reached'] - data['initial_position'], axis=1),
     })
 
-    print(calculate_distance(df=df, angle_1=np.min(df['changed_angle']), angle_2=np.max(df['changed_angle'])))
+    df['norm_distance'] = df['distance'] - df['distance'].min()
+    plt.plot(df['changed_angle'], df['distance'], 'o')
+    plt.xlabel('Angle in [°]')
+    plt.ylabel('Distance to goal in [m]')
+    plt.savefig('distance_to_goal.pdf', dpi=300, bbox_inches='tight')
+    plt.show()
