@@ -353,4 +353,9 @@ def test_mlp(test_df: pd.DataFrame,
 
 
 if __name__ == '__main__':
-    make_reaching_error_data()
+    cpg_files = (
+        'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1.npz',
+        'results/RHI_j12_sigma4/network_inverse_kinematic/inverse_results_run9.npz')
+
+    for cpg_file in cpg_files:
+        make_reaching_error_data(cpg_path=cpg_file)
