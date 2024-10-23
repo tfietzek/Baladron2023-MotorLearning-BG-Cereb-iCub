@@ -48,7 +48,8 @@ if __name__ == '__main__':
                 'error': data['errors']
             })
 
-            #data_df = data_df[data_df['theta'] < 30.]
+
+            #data_df = data_df[data_df['theta'] < 48.5]
             # Calculate mean error and standard error for each diff
             error_stats = data_df.groupby('diff')['error'].agg(['mean', 'std']).reset_index()
             error_stats.columns = ['diff', f'mean_error_{hidden_layer_size}', f'std_error_{hidden_layer_size}']
@@ -65,26 +66,11 @@ if __name__ == '__main__':
             plt.fill_between(error_stats['diff'], error_stats['lower_bound'], error_stats['upper_bound'],
                              alpha=0.1)
 
-    # Finalize the plot
-    plt.legend()
-    plt.title('Mean Error for regMLP with Different Hidden Layer Sizes')
-    plt.xlabel('$\\Delta \\Theta$  in [°]')
-    plt.ylabel('Error in [m]')
-    plt.ylim(0, 0.1)
-    plt.savefig('combined_mean_error_plot.pdf', dpi=300, bbox_inches='tight')
-    plt.show()
-
-    # Plot distance to goal
-    data = np.load('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1.npz')
-    df = pd.DataFrame({
-        'changed_angle': data['changed_angle'],
-        'init_pos': data['initial_position'].tolist(),
-        'distance': np.linalg.norm(data['goals_reached'] - data['initial_position'], axis=1),
-    })
-
-    df['norm_distance'] = df['distance'] - df['distance'].min()
-    plt.plot(df['changed_angle'], df['distance'], 'o')
-    plt.xlabel('Angle in [°]')
-    plt.ylabel('Distance to goal in [m]')
-    plt.savefig('distance_to_goal.pdf', dpi=300, bbox_inches='tight')
-    plt.show()
+        # Finalize the plot
+        plt.legend()
+        plt.title(f'Mean Error for regMLP with Different Hidden Layer Sizes | Data Set: {data_set}')
+        plt.xlabel('$\\Delta \\Theta$  in [°]')
+        plt.ylabel('Error in [m]')
+        plt.ylim(0, 0.1)
+        plt.savefig(f'results/{data_set}/combined_mean_error_plot.pdf', dpi=300, bbox_inches='tight')
+        plt.show()

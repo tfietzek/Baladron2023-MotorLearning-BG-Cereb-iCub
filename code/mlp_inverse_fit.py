@@ -1,8 +1,10 @@
+import numpy as np
 import pandas as pd
 import importlib
 import matplotlib.pyplot as plt
 from typing import Optional
 import os
+import gc
 
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor, MLPClassifier
@@ -26,8 +28,11 @@ def make_reaching_error_data(
     else:
         cpg_data = load_inverse_kinematic_results(cpg_path)
 
+    changed_angle = cpg_data['changed_angle']
+    cpgs = cpg_data['cpg_params_to_goals']
+
     # make column for possible reaching errors
-    cpg_data['reaching_error'] = []
+    reaching_errors = []
 
     # init icub + cpg
     iCubMotor = importlib.import_module(params.iCub_joint_names)
@@ -47,25 +52,34 @@ def make_reaching_error_data(
     kin_read.set_jointangles(np.radians(init_pos_arm))
     kin_read.block_links([7, 8, 9])
 
-    for cpg_param in cpg_data['cpg_params_to_goals']:
-        reaching_errors = []
+    for cpg_param in cpgs:
+        reaching_error = []
 
-        for init_angle in cpg_data['initial_angle']:
+        for ang in changed_angle:
+            initial_angles[3] = ang
+
             if cpg_param.shape != (4, 6):
                 cpg_param = cpg_param.reshape(4, 6)
 
             # execute movement
-            reached, reached_angles = execute_movement(pms=cpg_param, current_angles=init_angle, radians=False)
+            reached, reached_angles = execute_movement(pms=cpg_param, current_angles=initial_angles, radians=False)
 
             # compute error
             error = np.linalg.norm(goal - reached)
-            reaching_errors.append(error)
+            reaching_error.append(error)
 
-        cpg_data['reaching_error'].append(reaching_errors)
+        reaching_errors.append(reaching_error)
 
+    # make dataframe
+    data = cpg_data.copy()
+    data['reaching_error'] = reaching_errors
     # save
     path, _ = os.path.split(cpg_path)
-    np.savez(path + '/best_inverse_results.npz', **cpg_data)
+    np.savez(path + '/best_inverse_results.npz', **data)
+
+    # clear memory
+    del iCubMotor
+    gc.collect()
 
 
 def load_rhi_data(path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
@@ -320,16 +334,4 @@ def test_mlp(test_df: pd.DataFrame,
 
 
 if __name__ == '__main__':
-
-    # load data
-    train_df = merge_training_data()
-    test_df = merge_test_data()
-
-    hidden_layer_sizes = (
-        (32,), (32, 32), (64,), (64, 64), (128,), (128, 128), (256,), (256, 256), (512,), (512, 512)
-    )
-
-    for hidden_layer_size in hidden_layer_sizes:
-        mlp, scaler, _ = train_mlp(train_df, hidden_layer_size=hidden_layer_size, random_state=42, test_size=0.3)
-
-    test_mlp(test_df, mlp, scaler)
+    make_reaching_error_data()
