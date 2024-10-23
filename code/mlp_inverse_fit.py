@@ -54,7 +54,6 @@ def make_reaching_error_data(
 
     for cpg_param in cpgs:
         reaching_error = []
-
         for ang in changed_angle:
             initial_angles[3] = ang
 
@@ -71,8 +70,9 @@ def make_reaching_error_data(
         reaching_errors.append(reaching_error)
 
     # make dataframe
-    data = cpg_data.copy()
+    data = dict(cpg_data)
     data['reaching_error'] = reaching_errors
+
     # save
     path, _ = os.path.split(cpg_path)
     np.savez(path + '/best_inverse_results.npz', **data)
@@ -133,15 +133,16 @@ def merge_training_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop
     cpg_df = pd.DataFrame({
         'theta': thetas,
         'reaching_error': cpg_data['reaching_error'].tolist(),
-        'category': np.arange(0, thetas.shape[0])
     })
 
-
+    # sort by theta
+    cpg_df = cpg_df.sort_values('theta')
+    cpg_df['category'] = np.arange(0, thetas.shape[0])
     return pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
 
 def merge_test_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
-                    cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run5',
+                    cpg_path: Optional[str] = 'results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results',
                     merge_nearest_neighbor: bool = False) -> pd.DataFrame:
 
     if not os.path.isfile(cpg_path):
@@ -169,12 +170,12 @@ def merge_test_data(rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.n
     cpg_df = pd.DataFrame({
         'theta': thetas,
         'reaching_error': cpg_data['reaching_error'].tolist(),
-        'category': np.arange(0, thetas.shape[0])
     })
 
     # Sort both DataFrames by the 'theta' column. This is required for merge_asof to work correctly.
     rhi_df = rhi_df.sort_values('theta')
     cpg_df = cpg_df.sort_values('theta')
+    cpg_df['category'] = np.arange(0, thetas.shape[0])
 
     # Perform the merge
     if merge_nearest_neighbor:
