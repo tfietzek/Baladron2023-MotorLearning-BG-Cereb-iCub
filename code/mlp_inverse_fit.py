@@ -211,44 +211,54 @@ def load_mlp(save_path: str = 'results/mlp_execute_movement/'):
     return mlp, scaler
 
 
-# TODO: Implement version with categorical MLP (one hot encoding for categorical features)
 def train_mlp(trainings_df: pd.DataFrame,
               input_col: str = 'r_output',
               target_col: str = 'category',
               test_size: float = 0.2,
               hidden_layer_size: tuple = (128, 128,),
               random_state: Optional[int] = 42,
-              print_mse: bool = True) -> tuple:
+              print_accuracy: bool = True) -> tuple:
 
     X = np.array(trainings_df[input_col].tolist())
     y = np.array(trainings_df[target_col].tolist())
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=True)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
+                                                        shuffle=True)
 
     # Scale the features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # Create and train the MLP
-    mlp = MLPRegressor(hidden_layer_sizes=hidden_layer_size, max_iter=10_000, random_state=random_state)
-    mlp.fit(X_train_scaled, y_train)
+    # One-hot encode the target
+    onehot = OneHotEncoder()
+    y_train_onehot = onehot.fit_transform(y_train.reshape(-1, 1))
 
-    # Make predictions
-    y_train_pred = mlp.predict(X_train_scaled)
-    y_test_pred = mlp.predict(X_test_scaled)
+    # Create and train the MLP Regressor
+    mlp = MLPRegressor(hidden_layer_sizes=hidden_layer_size,
+                       max_iter=10_000,
+                       random_state=random_state)
+    mlp.fit(X_train_scaled, y_train_onehot)
 
-    # Calculate MSE
-    mse_train = mean_squared_error(y_train, y_train_pred)
-    mse_test = mean_squared_error(y_test, y_test_pred)
+    # Make predictions and convert back to classes
+    y_train_pred_onehot = mlp.predict(X_train_scaled)
+    y_test_pred_onehot = mlp.predict(X_test_scaled)
 
-    if print_mse:
+    # Convert predictions back to class indices
+    y_train_pred = np.argmax(y_train_pred_onehot, axis=1)
+    y_test_pred = np.argmax(y_test_pred_onehot, axis=1)
+
+    # Calculate accuracy
+    train_accuracy = np.mean(y_train_pred == y_train)
+    test_accuracy = np.mean(y_test_pred == y_test)
+
+    if print_accuracy:
         print(f"Hidden layer size: {hidden_layer_size}")
-        print(f"Training MSE: {mse_train:.4f}")
-        print(f"Test MSE: {mse_test:.4f}\n")
+        print(f"Training Accuracy: {train_accuracy:.4f}")
+        print(f"Test Accuracy: {test_accuracy:.4f}\n")
 
-    return mlp, scaler, mse_test
+    return mlp, scaler, onehot, test_accuracy
 
 
 def train_mlps(trainings_df: pd.DataFrame,
@@ -257,35 +267,39 @@ def train_mlps(trainings_df: pd.DataFrame,
                test_size: float = 0.2,
                hidden_layer_size: tuple = (128, 128,),
                max_iter: int = 100) -> tuple:
-
-    best_mlp, best_scaler, best_mse = None, None, np.inf
+    best_mlp, best_scaler, best_onehot, best_accuracy = None, None, None, -np.inf
     for _ in range(max_iter):
-        mlp, scaler, mse = train_mlp(trainings_df,
-                                     input_col=input_col,
-                                     target_col=target_col,
-                                     test_size=test_size,
-                                     hidden_layer_size=hidden_layer_size,
-                                     random_state=None, print_mse=False)
-        if mse < best_mse:
-            best_mse = mse
+        mlp, scaler, onehot, accuracy = train_mlp(trainings_df,
+                                                  input_col=input_col,
+                                                  target_col=target_col,
+                                                  test_size=test_size,
+                                                  hidden_layer_size=hidden_layer_size,
+                                                  random_state=None,
+                                                  print_accuracy=False)
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
             best_mlp = mlp
             best_scaler = scaler
+            best_onehot = onehot
 
-    return best_mlp, best_scaler
+    print(f"Best Test Accuracy: {best_accuracy:.4f}")
+    return best_mlp, best_scaler, best_onehot
 
 
 def get_prediction(r_input: np.ndarray | list,
                    trained_mlp,
                    training_scaler,
-                   cpg_reshape: bool = False) -> np.ndarray:
+                   onehot_encoder,
+                   return_onehot: bool = False) -> np.ndarray:
     """
-    Predict CPG parameters for given input
+    Predict class for given input
 
     :param r_input: RHI input from Valentin
-    :param trained_mlp: Trained MLP which maps input to CPG parameters
+    :param trained_mlp: Trained MLP which maps input to one-hot encoded outputs
     :param training_scaler: The scaler used to scale the input
-    :param cpg_reshape: If the CPG parameters should be reshaped or not
-    :return: cpg parameters
+    :param onehot_encoder: The one-hot encoder used for the targets
+    :param return_onehot: If True, returns the one-hot encoded predictions instead of class indices
+    :return: predicted classes or one-hot encoded predictions
     """
     if isinstance(r_input, list):
         r_input = np.array(r_input)
@@ -294,44 +308,48 @@ def get_prediction(r_input: np.ndarray | list,
     if r_input.ndim == 1:
         r_input = r_input.reshape(1, -1)
 
-    n_in = r_input.shape[0]
     r_input_scaled = training_scaler.transform(r_input)
-    y_pred = trained_mlp.predict(r_input_scaled)
+    y_pred_onehot = trained_mlp.predict(r_input_scaled)
 
-    if cpg_reshape:
-        if n_in == 1:
-            y_pred = y_pred.reshape(4, 6)
-        else:
-            y_pred = y_pred.reshape(n_in, 4, 6)
-
-    return y_pred
+    if return_onehot:
+        return onehot_encoder.inverse_transform(y_pred_onehot)
+    else:
+        return np.argmax(y_pred_onehot, axis=1)
 
 
 def test_mlp(test_df: pd.DataFrame,
              trained_mlp,
              training_scaler,
+             onehot_encoder,
              input_col: str = 'r_output',
-             target_col: str = 'cpg_output',
+             target_col: str = 'category',
+             error_col: str = 'reaching_error',
              test_id: Optional[int] = None,
-             print_mse: bool = True) -> tuple:
-
-    from sklearn.metrics import mean_squared_error
+             print_accuracy: bool = True) -> tuple:
+    from sklearn.metrics import accuracy_score, classification_report
 
     r_test = np.array(test_df[input_col].tolist())
-    cpg_test = np.array(test_df[target_col].tolist())
+    y_test = np.array(test_df[target_col].tolist())
 
     if test_id is not None:
-        # shape of r_test: (179685, 50)
         assert test_id < r_test.shape[0], "test_id out of range!"
         r_test = r_test[test_id]
-        cpg_test = cpg_test[test_id].reshape(1, -1)
+        y_test = y_test[test_id].reshape(1, -1)
 
-    cpg_pred = get_prediction(r_test, trained_mlp, training_scaler)
-    mse = mean_squared_error(cpg_test, cpg_pred)
-    if print_mse:
-        print(f"MSE: {mse:.4f}")
+    y_pred = get_prediction(r_test, trained_mlp, training_scaler, onehot_encoder, return_onehot=False)
+    accuracy = accuracy_score(y_test, y_pred)
 
-    return cpg_pred, mse
+    errors = []
+    for i, cpg_pred in enumerate(y_pred):
+        r = test_df[error_col].iloc[i]
+        errors.append(r[cpg_pred])
+
+    if print_accuracy:
+        print(f"Accuracy: {accuracy:.4f}")
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+
+    return y_pred, errors, accuracy
 
 
 if __name__ == '__main__':
