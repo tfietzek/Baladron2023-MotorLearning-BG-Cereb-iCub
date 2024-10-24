@@ -31,6 +31,7 @@ def calculate_distance(df: pd.DataFrame, angle_1: float, angle_2: float) -> floa
 
 
 if __name__ == '__main__':
+    plot_distance_to_goal: bool = False
     data_sets = ('RHI_j11_sigma2', 'RHI_j12_sigma4')
     # Initialize an empty plot
     plt.figure(figsize=(10, 6))
@@ -44,11 +45,13 @@ if __name__ == '__main__':
 
             data_df = pd.DataFrame({
                 'theta': data['proprio_angles'],
-                'diff': np.abs(data['proprio_angles'] - data['vision_angles']),
+                'diff': data['proprio_angles'] - data['vision_angles'],
                 'error': data['errors']
             })
 
-            #data_df = data_df[data_df['theta'] < 30.]
+            # data_df = data_df[data_df['theta'] < 48.]
+            data_df.loc[data_df['diff'] < 0, 'error'] *= -1
+
             # Calculate mean error and standard error for each diff
             error_stats = data_df.groupby('diff')['error'].agg(['mean', 'std']).reset_index()
             error_stats.columns = ['diff', f'mean_error_{hidden_layer_size}', f'std_error_{hidden_layer_size}']
@@ -59,32 +62,37 @@ if __name__ == '__main__':
             error_stats['upper_bound'] = error_stats[f'mean_error_{hidden_layer_size}'] + error_stats[f'std_error_{hidden_layer_size}']
 
             # Plot the mean error line for this dataset
-            plt.plot(error_stats['diff'], error_stats[f'mean_error_{hidden_layer_size}'], label=f'Mean Error {hidden_layer_size}')
+            plt.plot(error_stats['diff'], error_stats[f'mean_error_{hidden_layer_size}'], label=f'{data_set}:{hidden_layer_size}')
 
             # Plot the shaded error range for this dataset
             plt.fill_between(error_stats['diff'], error_stats['lower_bound'], error_stats['upper_bound'],
                              alpha=0.1)
+
+            subset = data_df.sample(n=50_000)
+            plt.scatter(subset['diff'] + np.random.uniform(low=-0.5, high=0.5, size=len(subset)), subset['error'], s=0.04, alpha=0.2)
 
     # Finalize the plot
     plt.legend()
     plt.title('Mean Error for regMLP with Different Hidden Layer Sizes')
     plt.xlabel('$\\Delta \\Theta$  in [°]')
     plt.ylabel('Error in [m]')
-    plt.ylim(0, 0.1)
+    plt.ylim(-0.15, 0.15)
+    plt.grid()
     plt.savefig('combined_mean_error_plot.pdf', dpi=300, bbox_inches='tight')
     plt.show()
 
     # Plot distance to goal
-    data = np.load('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1.npz')
-    df = pd.DataFrame({
-        'changed_angle': data['changed_angle'],
-        'init_pos': data['initial_position'].tolist(),
-        'distance': np.linalg.norm(data['goals_reached'] - data['initial_position'], axis=1),
-    })
+    if plot_distance_to_goal:
+        data = np.load('results/RHI_j11_sigma2/network_inverse_kinematic/inverse_results_run1.npz')
+        df = pd.DataFrame({
+            'changed_angle': data['changed_angle'],
+            'init_pos': data['initial_position'].tolist(),
+            'distance': np.linalg.norm(data['goals_reached'] - data['initial_position'], axis=1),
+        })
 
-    df['norm_distance'] = df['distance'] - df['distance'].min()
-    plt.plot(df['changed_angle'], df['distance'], 'o')
-    plt.xlabel('Angle in [°]')
-    plt.ylabel('Distance to goal in [m]')
-    plt.savefig('distance_to_goal.pdf', dpi=300, bbox_inches='tight')
-    plt.show()
+        df['norm_distance'] = df['distance'] - df['distance'].min()
+        plt.plot(df['changed_angle'], df['distance'], 'o')
+        plt.xlabel('Angle in [°]')
+        plt.ylabel('Distance to goal in [m]')
+        plt.savefig('distance_to_goal.pdf', dpi=300, bbox_inches='tight')
+        plt.show()
