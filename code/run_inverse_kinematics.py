@@ -23,7 +23,7 @@ setup(num_threads=2)
 from kinematic import *
 from cpg import *
 from train_BG_reaching import execute_movement, random_goal2_iCub
-from mlp_inverse_fit import load_training_rhi_thetas
+from mlp_utils import load_training_rhi_thetas
 
 # CPG
 import CPG_lib.parameter as params
