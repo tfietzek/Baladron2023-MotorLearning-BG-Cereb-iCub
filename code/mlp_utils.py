@@ -51,8 +51,10 @@ def get_cpg_data(cpg_path: str) -> pd.DataFrame:
 
 def merge_training_data(rhi_path: str,
                         cpg_path: str,
-                        normalize_rhi_data: bool = False) -> pd.DataFrame:
-    save_name = "/training_data.parquet"
+                        normalize_rhi_data: bool = False,
+                        save_name: Optional[str] = None) -> pd.DataFrame:
+    if save_name is None:
+        save_name = "/training_data.parquet"
     save_path, _ = os.path.split(cpg_path)
     if os.path.isfile(save_path + save_name):
         return pd.read_parquet(save_path + save_name)
@@ -84,9 +86,10 @@ def merge_training_data(rhi_path: str,
 
 def merge_test_data(rhi_path: str,
                     cpg_path: str,
-                    merge_nearest_neighbor: bool = False) -> pd.DataFrame:
-
-    save_name = "/test_data.parquet"
+                    merge_nearest_neighbor: bool = False,
+                    save_name: Optional[str] = None) -> pd.DataFrame:
+    if save_name is None:
+        save_name = "/test_data.parquet"
     save_path, _ = os.path.split(cpg_path)
     if os.path.isfile(save_path + save_name):
         return pd.read_parquet(save_path + save_name)

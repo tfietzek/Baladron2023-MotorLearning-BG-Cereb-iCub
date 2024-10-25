@@ -20,8 +20,8 @@ if __name__ == '__main__':
                 'data_out/data_RHI_jitter_1_2_sigma_prop_4.npz')[data_set]
     data_name = ('RHI_j11_sigma2', 'RHI_j12_sigma4')[data_set]
 
-    df_train = merge_training_data(rhi_path=rhi_path, cpg_path=inv_path)
-    df_test = merge_test_data(rhi_path=rhi_path, cpg_path=inv_path)
+    df_train = merge_training_data(rhi_path=rhi_path, cpg_path=inv_path, save_name=f'/{data_name}_training.parquet')
+    df_test = merge_test_data(rhi_path=rhi_path, cpg_path=inv_path, save_name=f'/{data_name}_test.parquet')
 
     for hidden_layer_size in hidden_layer_sizes:
         # save results in this folder
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         mlp, scaler = train_mlps(df_train,
                                  hidden_layer_size=hidden_layer_size,
                                  test_size=0.2,
-                                 max_iter=10,
+                                 max_iter=20,
                                  plot_path=folder)
 
         save_mlp(mlp, scaler, save_path=folder)
