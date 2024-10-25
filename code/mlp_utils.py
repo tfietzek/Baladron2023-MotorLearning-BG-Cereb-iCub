@@ -4,7 +4,7 @@ import importlib
 import matplotlib.pyplot as plt
 from typing import Optional
 import os
-
+import datetime
 
 from plot_error_inverse_kinematics import choose_run_with_lowest_error, load_inverse_kinematic_results
 
@@ -36,9 +36,9 @@ def load_training_rhi_thetas(path: str = 'data_out/data_RHI_jitter_1_1_sigma_pro
 def get_cpg_data(cpg_path: str) -> pd.DataFrame:
     cpg_data = np.load(cpg_path)
 
-    thetas = cpg_data['changed_angle']
     cpg_df = pd.DataFrame({
-        'theta': thetas,
+        'theta': cpg_data['changed_angle'],
+        'cpg': cpg_data['cpg_params_to_goals'].tolist(),
         'reaching_error': cpg_data['reaching_error'].tolist(),
     })
 
@@ -160,7 +160,7 @@ def train_mlp(trainings_df: pd.DataFrame,
               random_state: Optional[int] = 42,
               tolerance: float = 1e-6,
               verbose: bool = True,
-              print_accuracy: bool = True,
+              save_classification_report: Optional[str] = None,
               save_loss_plot: Optional[str] = None) -> tuple:
 
     from sklearn.neural_network import MLPClassifier
@@ -195,9 +195,13 @@ def train_mlp(trainings_df: pd.DataFrame,
 
     # Evaluate the model
     y_pred = classifier.predict(X_test)
-    if print_accuracy:
-        print("\nClassification Report:")
-        print(classification_report(y_test, y_pred))
+    if save_classification_report is not None:
+        content = []
+        content.append(f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        content.append("\nClassification Report:")
+        content.append(classification_report(y_test, y_pred))
+        with open(save_classification_report, 'w') as f:
+            f.write('\n'.join(content))
 
     if save_loss_plot is not None:
         # Plot learning curve
@@ -230,8 +234,9 @@ def train_mlps(trainings_df: pd.DataFrame,
                                           hidden_layer_size=hidden_layer_size,
                                           random_state=None,
                                           verbose=False,
-                                          print_accuracy=False,
+                                          save_classification_report=plot_path + f'report_{i}.txt',
                                           save_loss_plot=plot_path + f'loss_curve_{i}.png')
+
         if accuracy > best_accuracy:
             best_accuracy = accuracy
             best_mlp = mlp
