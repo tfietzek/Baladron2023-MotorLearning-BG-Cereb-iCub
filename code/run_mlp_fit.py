@@ -9,8 +9,6 @@ from mlp_utils import (train_mlp,
                        get_prediction,
                        save_mlp)
 
-
-
 if __name__ == '__main__':
     data_set = (0, 1)[int(sys.argv[1])]
     hidden_layer_sizes = ((64,), (64, 64,), (128,), (128, 128,), (256,), (256, 256), (512,), (512, 512))
@@ -33,9 +31,9 @@ if __name__ == '__main__':
 
         # train mlp
         print(f'Training MLP with hidden layer size: {hidden_layer_size}')
-        mlp, scaler, onehot = train_mlps(df_train,
-                                         hidden_layer_size=hidden_layer_size,
-                                         test_size=0.2)
+        mlp, scaler = train_mlps(df_train,
+                                 hidden_layer_size=hidden_layer_size,
+                                 test_size=0.2,
+                                 max_iter=10, )
 
         save_mlp(mlp, scaler, save_path=folder)
-
