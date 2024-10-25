@@ -74,18 +74,23 @@ def merge_training_data(rhi_path: str,
 
     # create cpg dataframe
     cpg_df = get_cpg_data(cpg_path)
-    merge_df = pd.merge(rhi_df, cpg_df, on='theta', how='left')
+    merged_df = pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
     # save
-    path, _ = os.path.split(cpg_path)
-    merge_df.to_parquet(path + save_name)
+    merged_df.to_parquet(save_path + save_name)
 
-    return merge_df
+    return merged_df
 
 
 def merge_test_data(rhi_path: str,
                     cpg_path: str,
                     merge_nearest_neighbor: bool = False) -> pd.DataFrame:
+
+    save_name = "/test_data.parquet"
+    save_path, _ = os.path.split(cpg_path)
+    if os.path.isfile(save_path + save_name):
+        return pd.read_parquet(save_path + save_name)
+
     if not os.path.isfile(cpg_path):
         print("make_reaching_error_data() must be run before merge_training_data()")
 
@@ -110,9 +115,14 @@ def merge_test_data(rhi_path: str,
 
     # Perform the merge
     if merge_nearest_neighbor:
-        return pd.merge_asof(rhi_df, cpg_df, on='theta', direction='nearest')
+        merged_df = pd.merge_asof(rhi_df, cpg_df, on='theta', direction='nearest')
     else:
-        return pd.merge(rhi_df, cpg_df, on='theta', how='left')
+        merged_df = pd.merge(rhi_df, cpg_df, on='theta', how='left')
+
+    # save
+    merged_df.to_parquet(save_path + save_name)
+
+    return merged_df
 
 
 def save_mlp(mlp, scaler, save_path: str = 'results/mlp_execute_movement/') -> None:
@@ -148,8 +158,11 @@ def train_mlp(trainings_df: pd.DataFrame,
               test_size: float = 0.2,
               hidden_layer_size: tuple = (128,),
               random_state: Optional[int] = 42,
+              tolerance: float = 1e-6,
               verbose: bool = True,
-              do_loss_plot: bool = True) -> tuple:
+              print_accuracy: bool = True,
+              save_loss_plot: Optional[str] = None) -> tuple:
+
     from sklearn.neural_network import MLPClassifier
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
@@ -172,27 +185,30 @@ def train_mlp(trainings_df: pd.DataFrame,
         hidden_layer_sizes=hidden_layer_size,  # Two hidden layers
         activation='relu',
         solver='adam',
-        max_iter=1000,
+        max_iter=1_000,
         random_state=random_state,
-        verbose=verbose
+        verbose=verbose,
+        tol=tolerance
     )
 
     classifier.fit(X_train, y_train)
 
     # Evaluate the model
     y_pred = classifier.predict(X_test)
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
+    if print_accuracy:
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
 
-    if do_loss_plot:
+    if save_loss_plot is not None:
         # Plot learning curve
-        plt.figure(figsize=(10, 5))
+        fig = plt.figure(figsize=(10, 5))
         plt.plot(classifier.loss_curve_)
         plt.title('Learning Curve')
         plt.xlabel('Iterations')
         plt.ylabel('Loss')
         plt.grid(True)
-        plt.show()
+        plt.savefig(save_loss_plot, dpi=300, bbox_inches='tight')
+        plt.close(fig)
 
     return classifier, scaler, accuracy_score(y_test, y_pred)
 
@@ -202,17 +218,20 @@ def train_mlps(trainings_df: pd.DataFrame,
                target_col: str = 'theta',
                test_size: float = 0.2,
                hidden_layer_size: tuple = (128, 128,),
-               max_iter: int = 100) -> tuple:
+               max_iter: int = 100,
+               plot_path: Optional[str] = None) -> tuple:
 
     best_mlp, best_scaler, best_accuracy = None, None, -np.inf
-    for _ in range(max_iter):
+    for i in range(max_iter):
         mlp, scaler, accuracy = train_mlp(trainings_df,
                                           input_col=input_col,
                                           target_col=target_col,
                                           test_size=test_size,
                                           hidden_layer_size=hidden_layer_size,
                                           random_state=None,
-                                          verbose=False)
+                                          verbose=False,
+                                          print_accuracy=False,
+                                          save_loss_plot=plot_path + f'loss_curve_{i}.png')
         if accuracy > best_accuracy:
             best_accuracy = accuracy
             best_mlp = mlp
@@ -255,6 +274,7 @@ def test_mlp(test_df: pd.DataFrame,
              angle_id_col: str = 'error_id',
              test_id: Optional[int] = None,
              print_accuracy: bool = True) -> tuple:
+
     from sklearn.metrics import accuracy_score, classification_report
 
     r_test = np.array(test_df[input_col].tolist())

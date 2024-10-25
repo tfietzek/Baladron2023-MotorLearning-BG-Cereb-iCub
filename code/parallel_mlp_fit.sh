@@ -12,6 +12,9 @@ format_time() {
 # Record start time
 start_time=$(date +%s)
 
+# Make inverse data with possible reaching errors
+python make_inverse_data.py
+
 # Run python script with argument 0 in background
 python run_mlp_fit.py 0 &
 pid0=$!
