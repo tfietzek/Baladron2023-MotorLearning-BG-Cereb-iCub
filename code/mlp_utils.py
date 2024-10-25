@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
-import importlib
 import matplotlib.pyplot as plt
-from typing import Optional
+from typing import Optional, Tuple
 import os
 import datetime
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from imblearn.over_sampling import SMOTE
 
 from plot_error_inverse_kinematics import choose_run_with_lowest_error, load_inverse_kinematic_results
 
@@ -162,26 +164,42 @@ def train_mlp(trainings_df: pd.DataFrame,
               hidden_layer_size: tuple = (128,),
               random_state: Optional[int] = 42,
               tolerance: float = 1e-6,
+              scaler_type: str = 'robust',
+              use_smote: bool = False,
               verbose: bool = True,
               save_classification_report: Optional[str] = None,
-              save_loss_plot: Optional[str] = None) -> tuple:
+              save_loss_plot: Optional[str] = None) -> Tuple[BaseEstimator, BaseEstimator, float]:
 
     from sklearn.neural_network import MLPClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler
+    from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+
+    from sklearn.preprocessing import StandardScaler, RobustScaler, PowerTransformer, QuantileTransformer
     from sklearn.metrics import accuracy_score, classification_report
 
     X = np.array(trainings_df[input_col].tolist())
     y = trainings_df[target_col].values  # make
 
+    # Choose scaler based on parameter
+    scalers = {
+        'standard': StandardScaler(),
+        'robust': RobustScaler(),
+        'power': PowerTransformer(method='yeo-johnson'),
+        'quantile': QuantileTransformer(output_distribution='normal'),
+    }
+
     # Scale the input features
-    scaler = StandardScaler()
+    scaler = scalers.get(scaler_type, StandardScaler())
     X_scaled = scaler.fit_transform(X)
 
     # Split the data
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled, y, test_size=test_size, random_state=random_state
     )
+
+    # Apply SMOTE for balanced sampling
+    if use_smote:
+        smote = SMOTE(random_state=random_state)
+        X_train, y_train = smote.fit_resample(X_train, y_train)
 
     # Initialize and train the classifier
     classifier = MLPClassifier(
@@ -191,16 +209,33 @@ def train_mlp(trainings_df: pd.DataFrame,
         max_iter=1_000,
         random_state=random_state,
         verbose=verbose,
-        tol=tolerance
+        tol=tolerance,
+        validation_fraction=0.1,
+        n_iter_no_change=10,
+        batch_size='auto',
+        learning_rate_init=0.001,
+        learning_rate='adaptive',
+        alpha=0.0001,  # L2 penalty
     )
 
     classifier.fit(X_train, y_train)
+
+    # Perform cross-validation
+    cv_scores = cross_val_score(classifier, X_train, y_train, cv=5)
+    if verbose:
+        print(f"Cross-validation scores: {cv_scores}")
+        print(f"Mean CV score: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
 
     # Evaluate the model
     y_pred = classifier.predict(X_test)
     if save_classification_report is not None:
         content = []
         content.append(f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        content.append("\nModel Configuration:")
+        content.append(f"Scaler: {scaler_type}")
+        content.append(f"SMOTE: {use_smote}")
+        content.append("\nCross-validation scores:")
+        content.append(f"Mean: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
         content.append("\nClassification Report:")
         content.append(classification_report(y_test, y_pred))
         with open(save_classification_report, 'w') as f:
@@ -225,8 +260,10 @@ def train_mlps(trainings_df: pd.DataFrame,
                target_col: str = 'theta',
                test_size: float = 0.2,
                hidden_layer_size: tuple = (128, 128,),
-               max_iter: int = 100,
-               plot_path: Optional[str] = None) -> tuple:
+               max_iter: int = 10,
+               scaler_type: str = 'robust',
+               print_accuracy: bool = True,
+               plot_path: Optional[str] = None) -> Tuple[BaseEstimator, BaseEstimator]:
 
     best_mlp, best_scaler, best_accuracy = None, None, -np.inf
     for i in range(max_iter):
@@ -237,6 +274,7 @@ def train_mlps(trainings_df: pd.DataFrame,
                                           hidden_layer_size=hidden_layer_size,
                                           random_state=None,
                                           verbose=False,
+                                          scaler_type=scaler_type,
                                           save_classification_report=plot_path + f'report_{i}.txt',
                                           save_loss_plot=plot_path + f'loss_curve_{i}.png')
 
@@ -244,8 +282,8 @@ def train_mlps(trainings_df: pd.DataFrame,
             best_accuracy = accuracy
             best_mlp = mlp
             best_scaler = scaler
-
-    print(f"Best Test Accuracy: {best_accuracy:.4f}")
+    if print_accuracy:
+        print(f"Best Test Accuracy: {best_accuracy:.4f}")
     return best_mlp, best_scaler
 
 

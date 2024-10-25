@@ -13,14 +13,14 @@ format_time() {
 start_time=$(date +%s)
 
 # Make inverse data with possible reaching errors
-python make_inverse_data.py
+#python make_inverse_data.py
 
 # Run python script with argument 0 in background
-python run_mlp_fit.py 0 &
+python run_mlp_fit.py 0
 pid0=$!
 
 # Run python script with argument 1 in background
-python run_mlp_fit.py 1 &
+python run_mlp_fit.py 1
 pid1=$!
 
 # Wait for both background processes to complete
