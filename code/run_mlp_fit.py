@@ -34,6 +34,7 @@ if __name__ == '__main__':
         mlp, scaler = train_mlps(df_train,
                                  hidden_layer_size=hidden_layer_size,
                                  test_size=0.2,
-                                 max_iter=10, )
+                                 max_iter=10,
+                                 plot_path=folder)
 
         save_mlp(mlp, scaler, save_path=folder)
