@@ -340,3 +340,54 @@ def test_mlp(test_df: pd.DataFrame,
         print(classification_report(y_test, y_pred))
 
     return y_pred, accuracy
+
+
+def extract_accuracy(report_content: str):
+    """Extract the accuracy score from a report file content."""
+    import re
+    # Look for the accuracy line in the classification report
+    accuracy_match = re.search(r'accuracy\s+([0-9.]+)', report_content)
+    if accuracy_match:
+        return float(accuracy_match.group(1))
+    return None
+
+
+def find_best_model(root_dir: str):
+    """
+    Search through all directories and report files to find the best performing model.
+    Returns tuple of (best_folder, best_report_file, best_accuracy)
+    """
+    from pathlib import Path
+
+    best_accuracy = 0
+    best_folder = None
+    best_report = None
+
+    # Use glob to find all relevant directories
+    # This will match power_mlp_shape*, quantile_mlp_shape*, and robust_mlp_shape*
+    for scaler in ['power', 'quantile', 'robust', 'standard']:
+        for folder in Path(root_dir).glob(f"{scaler}_mlp_shape*"):
+            if not folder.is_dir():
+                continue
+
+            # Check all report files in the folder
+            for report_file in folder.glob("report_*.txt"):
+                try:
+                    with open(report_file, 'r') as f:
+                        content = f.read()
+                        accuracy = extract_accuracy(content)
+
+                        if accuracy and accuracy > best_accuracy:
+                            best_accuracy = accuracy
+                            best_folder = folder.name
+                            best_report = report_file.name
+
+                except Exception as e:
+                    print(f"Error reading {report_file}: {e}")
+
+    return best_folder, best_report, best_accuracy
+
+
+if __name__ == '__main__':
+    print(find_best_model(root_dir='results/RHI_j11_sigma2'))
+    print(find_best_model(root_dir='results/RHI_j12_sigma4'))
