@@ -193,7 +193,7 @@ def train_mlp(trainings_df: pd.DataFrame,
 
     # Split the data
     X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=test_size, random_state=random_state, suffle=True
+        X_scaled, y, test_size=test_size, random_state=random_state, shuffle=True
     )
 
     # Apply SMOTE for balanced sampling
