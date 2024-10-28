@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 import os
 import datetime
 
@@ -169,7 +169,6 @@ def train_mlp(trainings_df: pd.DataFrame,
               verbose: bool = True,
               save_classification_report: Optional[str] = None,
               save_loss_plot: Optional[str] = None) -> Tuple[BaseEstimator, BaseEstimator, float]:
-
     from sklearn.neural_network import MLPClassifier
     from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 
@@ -264,7 +263,6 @@ def train_mlps(trainings_df: pd.DataFrame,
                scaler_type: str = 'robust',
                print_accuracy: bool = True,
                plot_path: Optional[str] = None) -> Tuple[BaseEstimator, BaseEstimator]:
-
     best_mlp, best_scaler, best_accuracy = None, None, -np.inf
     for i in range(max_iter):
         mlp, scaler, accuracy = train_mlp(trainings_df,
@@ -320,7 +318,6 @@ def test_mlp(test_df: pd.DataFrame,
              angle_id_col: str = 'error_id',
              test_id: Optional[int] = None,
              print_accuracy: bool = True) -> tuple:
-
     from sklearn.metrics import accuracy_score, classification_report
 
     r_test = np.array(test_df[input_col].tolist())
@@ -385,9 +382,132 @@ def find_best_model(root_dir: str):
                 except Exception as e:
                     print(f"Error reading {report_file}: {e}")
 
-    return best_folder, best_report, best_accuracy
+    return root_dir + '/' + best_folder + '/', best_report, best_accuracy
+
+
+def analyze_predictions(df: pd.DataFrame,
+                        classifier,
+                        scaler,
+                        input_col: str = 'r_output',
+                        target_col: str = 'theta',
+                        plot_save_path: str = None) -> Tuple[Dict, pd.DataFrame]:
+    """
+    Analyze and visualize the distribution of predictions for each true angle.
+
+    Args:
+        df: DataFrame containing the data
+        classifier: Trained classifier model
+        scaler: Fitted scaler
+        input_col: Name of the input column
+        target_col: Name of the target column
+        plot_save_path: Optional path to save the plot
+
+    Returns:
+        Dictionary of prediction distributions and confusion matrix DataFrame
+    """
+    # Get unique angles and sort them
+    unique_angles = np.sort(df[target_col].unique())
+
+    # Prepare data
+    X = np.array(df[input_col].tolist())
+    y = df[target_col].values
+    X_scaled = scaler.transform(X)
+
+    # Get predictions
+    y_pred = classifier.predict(X_scaled)
+
+    # Create prediction distribution dictionary
+    prediction_dist = {angle: {} for angle in unique_angles}
+
+    # Fill the dictionary with prediction distributions
+    for true_angle in unique_angles:
+        # Get indices where true angle matches
+        true_mask = (y == true_angle)
+        # Get predictions for these instances
+        preds_for_angle = y_pred[true_mask]
+
+        # Count predictions for each possible angle
+        unique, counts = np.unique(preds_for_angle, return_counts=True)
+        total_count = len(preds_for_angle)
+
+        # Store as percentages in the dictionary
+        for pred_angle, count in zip(unique, counts):
+            prediction_dist[true_angle][pred_angle] = (count / total_count) * 100
+
+    # Create confusion matrix as percentage
+    confusion_matrix = pd.DataFrame(0,
+                                    index=unique_angles,
+                                    columns=unique_angles,
+                                    dtype=float)
+
+    for true_angle in prediction_dist:
+        for pred_angle, percentage in prediction_dist[true_angle].items():
+            confusion_matrix.loc[true_angle, pred_angle] = percentage
+
+    # Plotting
+    n_angles = len(unique_angles)
+    n_cols = 5
+    n_rows = (n_angles + n_cols - 1) // n_cols
+
+    fig = plt.figure(figsize=(20, 4 * n_rows))
+
+    # Create main title
+    fig.suptitle('Prediction Distribution per True Angle', fontsize=16, y=1.02)
+
+    # Create subplots for each angle
+    for idx, true_angle in enumerate(unique_angles):
+        ax = plt.subplot(n_rows, n_cols, idx + 1)
+
+        # Get prediction distribution for this angle
+        pred_dist = prediction_dist[true_angle]
+
+        # Create bar plot
+        pred_angles = sorted(pred_dist.keys())
+        percentages = [pred_dist[angle] for angle in pred_angles]
+
+        bars = ax.bar(pred_angles, percentages)
+
+        # Color the bar of the true angle differently
+        for angle, bar in zip(pred_angles, bars):
+            if angle == true_angle:
+                bar.set_color('green')
+            else:
+                bar.set_color('red')
+
+        # Customize plot
+        ax.set_title(f'True Angle: {true_angle}°')
+        ax.set_xlabel('Predicted Angle')
+        ax.set_ylabel('Percentage')
+        ax.tick_params(axis='x', rotation=45)
+
+        # Add percentage labels on top of bars
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2., height,
+                    f'{height:.1f}%',
+                    ha='center', va='bottom', rotation=0)
+
+        # Set y-axis limit to 100%
+        ax.set_ylim(0, 100)
+
+    plt.tight_layout()
+
+    if plot_save_path:
+        plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+    return prediction_dist, confusion_matrix
 
 
 if __name__ == '__main__':
-    print(find_best_model(root_dir='results/RHI_j11_sigma2'))
-    print(find_best_model(root_dir='results/RHI_j12_sigma4'))
+    df_training = merge_training_data(rhi_path='data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+                                      cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
+                                      save_name='/RHI_j11_sigma2_training.parquet')
+    mlp_folder, report_file, accuracy = find_best_model(root_dir='results/RHI_j11_sigma2')
+
+    print(f"Best model: {mlp_folder}")
+    mlp, scaler = load_mlp(save_path=mlp_folder)
+    prediction_dict, confusion_matrix = analyze_predictions(df_training,
+                                                            mlp,
+                                                            scaler,
+                                                            plot_save_path='results/RHI_j11_sigma2/prediction_distribution.png')
