@@ -171,7 +171,7 @@ def analyze_angle_index_frequencies(df: pd.DataFrame) -> dict:
 
 # Example usage:
 if __name__ == "__main__":
-    df = pd.read_parquet("results/RHI_j12_sigma4/network_inverse_kinematic/RHI_j12_sigma4_training.parquet")
+    df = pd.read_parquet("results/RHI_j11_sigma2/network_inverse_kinematic/RHI_j11_sigma2_training.parquet")
     freq_dist = analyze_angle_index_frequencies(df)
 
     # Plot frequency distributions

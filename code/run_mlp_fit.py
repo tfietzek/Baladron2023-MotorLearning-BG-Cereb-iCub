@@ -11,10 +11,9 @@ from mlp_utils import (train_mlp,
 
 if __name__ == '__main__':
     data_set = (0, 1)[int(sys.argv[1])]
-    hidden_layer_sizes = ((64,), (64, 64,),
-                          (128,), (128, 128,), (128, 64,),
-                          (256,), (256, 256), (256, 128),
-                          (512,), (512, 512), (512, 256),)
+    hidden_layer_sizes = ((50,), (50, 50,),
+                          (100,), (100, 100,), (100, 50,),
+                          (200,), (200, 200), (200, 100),)
     scaler_types = ('standard', 'robust', 'power', 'quantile')
     # data paths
     inv_path = ('results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
@@ -34,7 +33,7 @@ if __name__ == '__main__':
                 os.makedirs(folder)
 
             # train mlp
-            print(f'Training MLP with hidden layer size: {hidden_layer_size}')
+            print(f'Training MLP with hidden layer size: {hidden_layer_size} with data scaler: {data_scaler}')
             mlp, scaler = train_mlps(df_train,
                                      hidden_layer_size=hidden_layer_size,
                                      test_size=0.2,
