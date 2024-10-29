@@ -285,58 +285,150 @@ def train_mlps(trainings_df: pd.DataFrame,
     return best_mlp, best_scaler
 
 
-def get_prediction(r_input: np.ndarray | list,
+def get_cpg_errors(df: pd.DataFrame,
                    trained_mlp,
-                   training_scaler) -> np.ndarray:
-    """
-    Predict class for given input
+                   training_scaler,
+                   input_col: str = 'r_output',
+                   theta_col: str = 'theta',
+                   vision_col: str = 'vision_theta',
+                   error_col: str = 'reaching_error') -> pd.DataFrame:
 
-    :param r_input: RHI input from Valentin
-    :param trained_mlp: Trained MLP which maps input to one-hot encoded outputs
-    :param training_scaler: The scaler used to scale the input
-    :return: predicted classes or one-hot encoded predictions
-    """
-    if isinstance(r_input, list):
-        r_input = np.array(r_input)
+    df = df.sort_values(theta_col)
+    r_input = np.array(df[input_col].tolist())
 
-    # reshape if 1D
-    if r_input.ndim == 1:
-        r_input = r_input.reshape(1, -1)
+    unique_angles = df[theta_col].unique()
+    unique_angles = np.sort(unique_angles)
 
+    # Create reverse lookup dictionary
+    theta_to_id = {theta: idx for idx, theta in enumerate(unique_angles)}
+
+    # Get predictions
     r_input_scaled = training_scaler.transform(r_input)
-    y_pred_onehot = trained_mlp.predict(r_input_scaled)
+    y_pred = trained_mlp.predict(r_input_scaled)
 
-    return y_pred_onehot
+    # Get true angles
+    y_true = df[theta_col].values
+
+    # Convert error column data to numpy array
+    error_matrix = np.array(df[error_col].tolist())
+
+    # Get errors for predictions
+    errors = np.zeros(len(y_pred))
+
+    for i, (true_angle, pred_angle) in enumerate(zip(y_true, y_pred)):
+        # Get index for predicted angle from lookup table
+        pred_idx = theta_to_id[pred_angle]
+        # Get corresponding error from error matrix
+        errors[i] = error_matrix[i][pred_idx]
+
+    results_df = pd.DataFrame({
+        'theta': y_true,
+        'theta_pred': y_pred,
+        'reaching_error': errors,
+        'vision_theta': df[vision_col].values,
+        'cpg_params': df['cpg'].tolist()
+    })
+
+    return results_df
+
+
+def plot_cpg_errors(results_df: pd.DataFrame,
+                    plot_save_path: str = 'cpg_errors.png',
+                    show_plot: bool = False) -> None:
+    results_df['theta_diff_true'] = results_df['theta'] - results_df['vision_theta']
+    error_stats = results_df.groupby('theta_diff_true')['reaching_error'].agg(['mean', 'std']).reset_index()
+    error_stats.columns = ['diff', 'mean', 'std']
+    error_stats['se'] = error_stats['std'] / np.sqrt(
+        len(results_df.groupby('theta_diff_true')['reaching_error'].count()))
+
+    # Calculate the upper and lower bounds for the error range
+    error_stats['lower_bound'] = error_stats['mean'] - error_stats['std']
+    error_stats['upper_bound'] = error_stats['mean'] + error_stats['std']
+
+    # Plot the mean error line for this dataset
+    plt.plot(error_stats['diff'], error_stats['mean'], 'b', label='Mean Error in reaching')
+
+    # Plot the shaded error range for this dataset
+    plt.fill_between(error_stats['diff'], error_stats['lower_bound'], error_stats['upper_bound'], alpha=0.1)
+
+    subset = results_df.sample(n=100_000)
+    plt.scatter(subset['theta_diff_true'] + np.random.uniform(low=-0.5, high=0.5, size=len(subset)),
+                subset['reaching_error'], s=0.04,
+                alpha=0.2, c='gray')
+
+    plt.legend()
+    plt.grid()
+    plt.ylabel('Reaching Error in [m]')
+    plt.xlabel('$\\theta^{propio}_{true} - \\theta^{vision}_{true}$')
+    if plot_save_path is not None:
+        plt.savefig(plot_save_path)
+    if show_plot:
+        plt.show()
+
+    plt.close()
 
 
 def test_mlp(test_df: pd.DataFrame,
              trained_mlp,
              training_scaler,
              input_col: str = 'r_output',
-             target_col: str = 'theta',
-             error_col: str = 'reaching_error',
-             angle_id_col: str = 'error_id',
-             test_id: Optional[int] = None,
-             print_accuracy: bool = True) -> tuple:
-    from sklearn.metrics import accuracy_score, classification_report
+             proprio_col: str = 'theta',
+             vision_col: str = 'vision_theta',
+             n_samples: Optional[int] = None,
+             show_plot: bool = False,
+             plot_save_path: Optional[str] = None) -> pd.DataFrame:
+    if n_samples is not None:
+        test_df = test_df.sample(n_samples)
 
     r_test = np.array(test_df[input_col].tolist())
-    y_test = np.array(test_df[target_col].values)
+    y_true = np.array(test_df[proprio_col].values)
+    y_diff_true = y_true - np.array(test_df[vision_col].values)
 
-    if test_id is not None:
-        assert test_id < r_test.shape[0], "test_id out of range!"
-        r_test = r_test[test_id]
-        y_test = y_test[test_id].reshape(1, -1)
+    # Scale data
+    X_test_scaled = training_scaler.transform(r_test)
 
-    y_pred = get_prediction(r_test, trained_mlp, training_scaler)
-    accuracy = accuracy_score(y_test, y_pred)
+    # Get predictions
+    y_pred = trained_mlp.predict(X_test_scaled)
+    y_diff_pred = y_true - y_pred
 
-    if print_accuracy:
-        print(f"Accuracy: {accuracy:.4f}")
-        print("\nClassification Report:")
-        print(classification_report(y_test, y_pred))
+    results_df = pd.DataFrame({
+        'theta': y_true,
+        'theta_pred': y_pred,
+        'theta_diff_true': y_diff_true,
+        'theta_diff_pred': y_diff_pred
+    })
 
-    return y_pred, accuracy
+    error_stats = results_df.groupby('theta_diff_true')['theta_diff_pred'].agg(['mean', 'std']).reset_index()
+    error_stats.columns = ['diff', 'mean', 'std']
+    error_stats['se'] = error_stats['std'] / np.sqrt(
+        len(results_df.groupby('theta_diff_true')['theta_diff_pred'].count()))
+
+    # Calculate the upper and lower bounds for the error range
+    error_stats['lower_bound'] = error_stats['mean'] - error_stats['std']
+    error_stats['upper_bound'] = error_stats['mean'] + error_stats['std']
+
+    # Plot the mean error line for this dataset
+    plt.plot(error_stats['diff'], error_stats['mean'], 'b', label='Mean Error in Theta')
+
+    # Plot the shaded error range for this dataset
+    plt.fill_between(error_stats['diff'], error_stats['lower_bound'], error_stats['upper_bound'], alpha=0.1)
+
+    subset = results_df.sample(n=100_000)
+    plt.scatter(subset['theta_diff_true'] + np.random.uniform(low=-0.5, high=0.5, size=len(subset)),
+                subset['theta_diff_pred'], s=0.04,
+                alpha=0.2, c='gray')
+
+    plt.legend()
+    plt.grid()
+    plt.ylabel('$\\theta^{proprio}_{true} - \\theta_{pred}$')
+    plt.xlabel('$\\theta^{proprio}_{true} - \\theta^{vision}_{true}$')
+    if plot_save_path is not None:
+        plt.savefig(plot_save_path)
+    if show_plot:
+        plt.show()
+
+    plt.close()
+    return results_df
 
 
 def extract_accuracy(report_content: str):
@@ -503,11 +595,22 @@ if __name__ == '__main__':
     df_training = merge_training_data(rhi_path='data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
                                       cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
                                       save_name='/RHI_j11_sigma2_training.parquet')
-    mlp_folder, report_file, accuracy = find_best_model(root_dir='results/RHI_j11_sigma2')
+    # find best mlp
+    #mlp_folder, report_file, accuracy = find_best_model(root_dir='results/RHI_j11_sigma2')
 
-    print(f"Best model: {mlp_folder}")
-    mlp, scaler = load_mlp(save_path=mlp_folder)
+    # load mlp
+    mlp, scaler = load_mlp(save_path='results/RHI_j11_sigma2/robust_mlp_shape[(50,)]/')
+
     prediction_dict, confusion_matrix = analyze_predictions(df_training,
                                                             mlp,
                                                             scaler,
                                                             plot_save_path='results/RHI_j11_sigma2/prediction_distribution.png')
+
+    df_test = merge_test_data(rhi_path='data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+                              cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
+                              save_name='/RHI_j11_sigma2_test.parquet')
+
+    test_mlp(df_test, mlp, scaler, plot_save_path='results/RHI_j11_sigma2/test_distribution.png', show_plot=True)
+
+    error_df = get_cpg_errors(df_test, mlp, scaler)
+    plot_cpg_errors(error_df, plot_save_path='results/RHI_j11_sigma2/cpg_errors.png', show_plot=True)

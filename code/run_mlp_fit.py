@@ -6,7 +6,6 @@ from mlp_utils import (train_mlp,
                        train_mlps,
                        merge_training_data,
                        merge_test_data,
-                       get_prediction,
                        save_mlp)
 
 if __name__ == '__main__':
