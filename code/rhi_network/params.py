@@ -22,8 +22,7 @@ parameters = {
     'w_cpg': 1.0,
 
     # brainstem parameters
-    'softmax_temperature': 1.0,
-    'encodings_m1': np.arange(15, 80, 2, dtype=np.float16),
+    'encodings_m1': np.arange(16, 81, 2, dtype=np.float16),
 
     # inverse kinematics parameters
     'cpg_weights_file': 'results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz'
