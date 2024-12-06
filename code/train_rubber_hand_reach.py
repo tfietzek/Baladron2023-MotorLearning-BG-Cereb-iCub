@@ -39,7 +39,6 @@ def simulate_cpg(m1_rates: np.ndarray,
                  temperature: float = 1.0,
                  encodings_m1: np.ndarray = parameters["encodings_m1"]
                  ) -> Tuple[np.ndarray, float]:
-
     """
     Simulate the CPG output and the angle output
     :param m1_rates: Firing rates of M1
@@ -62,20 +61,16 @@ def train_over_inputs(
         wait_time: float = 50.,
         reach_time: float = 350.,
 ):
-
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
     if isinstance(m1_inputs, list):
         m1_inputs = np.array(m1_inputs)
-
-    print(s1_inputs.shape, m1_inputs.shape)
 
     if s1_inputs.ndim == 1:
         s1_inputs = s1_inputs.reshape(1, -1)
     if m1_inputs.ndim == 1:
         m1_inputs = m1_inputs.reshape(1, -1)
 
-    print(s1_inputs.shape, m1_inputs.shape)
     # check if
     assert s1_inputs.shape[0] == m1_inputs.shape[0], "Number of s1_inputs and m1_inputs should be equal"
 
@@ -94,9 +89,8 @@ def predict_over_inputs(
         s1_inputs: np.ndarray | list,
         wait_time: float = 50.,
         reach_time: float = 350.,
-        temperature: float = 1.0
+        temperature: float = 0.1
 ):
-
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
 
@@ -106,17 +100,18 @@ def predict_over_inputs(
     # disable learning
     ann.disable_learning()
 
+    m1_rates = []
     cpgs = []
     angles = []
 
     for i in range(s1_inputs.shape[0]):
-        m1_rates = simulate_reaching(s1_inputs=s1_inputs[i],
-                                     m1_inputs=None,
-                                     training=False,
-                                     wait_time=wait_time,
-                                     reach_time=reach_time)
+        m1_rate = simulate_reaching(s1_inputs=s1_inputs[i],
+                                    m1_inputs=None,
+                                    training=False,
+                                    wait_time=wait_time,
+                                    reach_time=reach_time)
 
-        cpg_output, angle_output = simulate_cpg(m1_rates=m1_rates, temperature=temperature)
-        cpgs.append(cpg_output), angles.append(angle_output)
+        cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
+        m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
 
-    return cpgs, angles
+    return m1_rates, cpgs, angles

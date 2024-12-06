@@ -68,8 +68,10 @@ def training(df_train: pd.DataFrame,
              pop_monitors: Optional[PopMonitor] = None,
              con_monitors: Optional[ConMonitor] = None,
              sub_samples: Optional[int] = None,
-             normalize_s1_inputs: bool = True,):
-    # create one hot encoded column
+             normalize_s1_inputs: bool = True,
+             save_model: bool = True, ):
+
+    # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
                                              column_name=m1_column,
                                              new_column_name='m1_input',
@@ -120,6 +122,9 @@ def training(df_train: pd.DataFrame,
             con_monitors.current_weight_diff(fig_size=(10, 10), save_name=save_path + 'weight_diff.pdf')
             con_monitors.reset()
 
+        if save_model:
+            ann.save(save_path + 'bg_synapses.npz')
+
 
 def testing(df_test: pd.DataFrame,
             s1_column: str = 'r_output',
@@ -129,7 +134,12 @@ def testing(df_test: pd.DataFrame,
             save_path: Optional[str] = None,
             pop_monitors: Optional[PopMonitor] = None,
             sub_samples: Optional[int] = None,
-            normalize_s1_inputs: bool = True, ):
+            normalize_s1_inputs: bool = True,
+            load_model_path: Optional[str] = None, ):
+
+    if load_model_path is not None:
+        ann.load(load_model_path + '/bg_synapses.npz')
+
     if sub_samples is not None:
         df_test = df_test.sample(sub_samples)
 
@@ -140,17 +150,23 @@ def testing(df_test: pd.DataFrame,
     if pop_monitors is not None:
         pop_monitors.start()
 
-    cpgs_output, angles_output = predict_over_inputs(s1_inputs=df_test[s1_column].tolist(),
-                                                     reach_time=reach_time,
-                                                     wait_time=wait_time,
-                                                     temperature=temperature_softmax)
+    m1_rates, cpgs_output, angles_output = predict_over_inputs(s1_inputs=df_test[s1_column].tolist(),
+                                                               reach_time=reach_time,
+                                                               wait_time=wait_time,
+                                                               temperature=temperature_softmax)
 
     if pop_monitors is not None:
         pop_monitors.stop()
 
     # update the dataframe
-    df_test['theta_output'] = angles_output
-    df_test['cpg_output'] = cpgs_output
+    df_test['bg_theta_output'] = angles_output
+    df_test['bg_cpg_output'] = cpgs_output
+    df_test['bg_m1_output'] = m1_rates
+
+    if sub_samples is not None:
+        pop_monitors.animate_current_monitors(
+            clear_monitors=False,
+        )
 
     if save_path is not None:
         if save_path[-1] != '/':
@@ -170,13 +186,14 @@ if __name__ == '__main__':
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
                             choices=("RHI_j11_sigma2", "RHI_j12_sigma4"), help="Abreviation of rhi data set")
     rhi_parser.add_argument('--rhi_data_path', type=str, default="data_out/data_RHI_jitter_1_1_sigma_prop_2.npz",
-                            help="Path to Valentins raw rhi data")
+                            help="Path to Valentin's raw rhi data")
     rhi_parser.add_argument('--monitoring_training', type=bool, default=True,
-                            help="Monitor the training process")
+                            help="Monitor the training process?")
     rhi_parser.add_argument('--monitoring_testing', type=bool, default=True,
-                            help="Monitor the testing process")
-    rhi_parser.add_argument('--clean_compile', type=bool, default=False, )
-    rhi_parser.add_argument('--debug', type=bool, default=True, )
+                            help="Monitor the testing process?")
+    rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
+    rhi_parser.add_argument('--debug', type=bool, default=False, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths
@@ -193,9 +210,14 @@ if __name__ == '__main__':
         training_save_path = f'results/{rhi_args.data_set}/bg_reach_training_debug/'
         testing_save_path = f'results/{rhi_args.data_set}/bg_reach_testing_debug/'
         # reduce number of samples in the dataframes
-        n_samples = 50
+        n_samples = 20
+        # monitoring sampling rates can be lower
+        sampling_rate_training = 1.
+        sampling_rate_testing = 1.
     else:
         n_samples = None
+        sampling_rate_training = 50.
+        sampling_rate_testing = 100.
 
     # compile model
     ann.compile(directory=f'annarchy/{rhi_args.data_set}/', clean=rhi_args.clean_compile)
@@ -204,7 +226,7 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc], sampling_rate=5.0)
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc], sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
         pop_monitors_training = None
@@ -221,7 +243,8 @@ if __name__ == '__main__':
     df_test = merge_test_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_test_name)
 
     if rhi_args.monitoring_testing:
-        pop_monitors_testing = PopMonitor([S1, StrD1, SNr, VL, M1, Brainstem, CPG_output], sampling_rate=10.0)
+        pop_monitors_testing = PopMonitor([S1, StrD1, SNr, VL, M1, Brainstem, CPG_output],
+                                          sampling_rate=sampling_rate_testing)
     else:
         pop_monitors_testing = None
 
@@ -229,5 +252,8 @@ if __name__ == '__main__':
     df_test = testing(df_test=df_test,
                       pop_monitors=pop_monitors_testing,
                       save_path=testing_save_path,
-                      sub_samples=n_samples)
+                      sub_samples=n_samples,
+                      temperature_softmax=rhi_args.temperature)
 
+    if rhi_args.debug:
+        print(df_test.columns)
