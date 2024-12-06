@@ -38,7 +38,7 @@ StriatumNeuron = ann.Neuron(
         tau*dmp/dt + mp = sum(exc) - sum(inh) + noise*Uniform(-1.0,1.0) + baseline
         r = tanh(pos(mp)) 
     """,
-    description="Striatum Neuron with normalized firing rates (Fast)."
+    description="Striatum Neuron with normalized firing rates (FSN normalize MSN activity)."
 
 )
 
@@ -64,25 +64,6 @@ LinearNeuron = ann.Neuron(
         tau*dmp/dt + mp = sum(exc) - sum(inh) + noise*Uniform(-1.0,1.0) + baseline
         r = pos(mp) 
     """
-)
-
-BrainstemNeuron = ann.Neuron(
-    parameters="""
-        temperature = 'softmax_temperature': population
-    """,
-    equations="""
-        r = exp(sum(exc)/temperature)
-    """,
-    extra_values=parameters
-)
-
-NormNeuron = ann.Neuron(
-    parameters="""
-        epsilon = 0.01: population
-    """,
-    equations="""
-        r = sum(exc) / (sum(norm) + epsilon)
-    """,
 )
 
 DopamineNeuron = ann.Neuron(
@@ -116,12 +97,12 @@ ReversedSynapse = ann.Synapse(
 # DA_typ = 1  ==> D1 type  DA_typ = -1 ==> D2 type
 PostCovarianceNoThreshold = ann.Synapse(
     parameters="""
-        tau = 100.0 : projection
+        tau = 200.0 : projection
         K_burst = 1.0 : projection
         K_dip = 0.4 : projection
         DA_type = 1 : projection
-        threshold_pre = 0.0 : projection
-        threshold_post = 0.2 : projection
+        threshold_pre = 0.05 : projection
+        threshold_post = 0.1 : projection
         baseline = 'baseline_dopa' : projection
     """,
     equations="""
