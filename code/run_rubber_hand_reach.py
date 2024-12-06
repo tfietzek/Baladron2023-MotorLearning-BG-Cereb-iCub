@@ -220,7 +220,10 @@ if __name__ == '__main__':
         sampling_rate_testing = 100.
 
     # compile model
-    ann.compile(directory=f'annarchy/{rhi_args.data_set}/', clean=rhi_args.clean_compile)
+    compile_folder = f'annarchy/{rhi_args.data_set}/'
+    if not os.path.exists(compile_folder):
+        os.makedirs(compile_folder)
+    ann.compile(directory=compile_folder, clean=rhi_args.clean_compile)
 
     # training
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)

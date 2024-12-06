@@ -292,7 +292,6 @@ def get_cpg_errors(df: pd.DataFrame,
                    theta_col: str = 'theta',
                    vision_col: str = 'vision_theta',
                    error_col: str = 'reaching_error') -> pd.DataFrame:
-
     df = df.sort_values(theta_col)
     r_input = np.array(df[input_col].tolist())
 
@@ -326,6 +325,7 @@ def get_cpg_errors(df: pd.DataFrame,
         'theta_pred': y_pred,
         'reaching_error': errors,
         'vision_theta': df[vision_col].values,
+        'diff': y_true - df[vision_col].values,
         'cpg_params': df['cpg'].tolist()
     })
 
