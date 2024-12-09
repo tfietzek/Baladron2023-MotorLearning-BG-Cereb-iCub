@@ -181,6 +181,16 @@ def testing(df_test: pd.DataFrame,
     return df_test
 
 
+def plot_theta_errors(df_test: pd.DataFrame,
+                      save_path: Optional[str] = None,):
+    pass
+
+
+def plot_cpg_errors(df_test: pd.DataFrame,
+                    save_path: Optional[str] = None,):
+    pass
+
+
 if __name__ == '__main__':
     rhi_parser = argparse.ArgumentParser()
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
@@ -194,6 +204,7 @@ if __name__ == '__main__':
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
     rhi_parser.add_argument('--temperature', type=float, default=0.1, )
+    rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths
@@ -229,7 +240,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc], sampling_rate=sampling_rate_training)
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc],
+                                           sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
         pop_monitors_training = None
@@ -260,3 +272,6 @@ if __name__ == '__main__':
 
     if rhi_args.debug:
         print(df_test.columns)
+
+    if rhi_args.do_plots:
+        pass

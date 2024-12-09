@@ -76,7 +76,7 @@ DopamineNeuron = ann.Neuron(
     equations="""
         s_inh = sum(inh)
         aux = firing * pos(1.0 - s_inh) + (1-firing)*baseline
-        tau*dmp/dt + mp =  aux
+        tau*dmp/dt + mp = aux
         r = pos(mp)
     """,
     extra_values=parameters,
@@ -85,7 +85,7 @@ DopamineNeuron = ann.Neuron(
 # Synapse definitions
 ReversedSynapse = ann.Synapse(
     parameters="""
-        reversal = 1.2 : projection
+        reversal = 1.1 : projection
     """,
     psp="""
         w*pos(reversal-pre.r)
@@ -120,7 +120,7 @@ PostCovarianceNoThreshold = ann.Synapse(
 
 DAPrediction = ann.Synapse(
     parameters="""
-        tau = 200.0 : projection
+        tau = 400.0 : projection
         threshold = 0.05 : projection
         baseline = 'baseline_dopa': projection
     """,

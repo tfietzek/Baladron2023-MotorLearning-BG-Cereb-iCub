@@ -2,7 +2,7 @@ from .definitions import *
 from .connections import weights_to_cpg
 
 
-ann.setup(num_threads=2)
+ann.setup(num_threads=4)
 
 # input populations
 S1 = ann.Population(geometry=parameters['dim_s1'], neuron=BaselineNeuron, name='S1')
@@ -46,7 +46,7 @@ VL_M1.connect_one_to_one(weights=parameters['w_m1'])
 
 # connections feedback
 M1_StrD1 = ann.Projection(pre=M1, post=StrD1, target='exc', name='M1_StrD1')
-M1_StrD1.connect_one_to_one(weights=0.4)
+M1_StrD1.connect_one_to_one(weights=0.5)
 
 # connections Output
 w_cpg = weights_to_cpg(file=parameters['cpg_weights_file'],
@@ -63,14 +63,14 @@ StrD1_SNc.connect_all_to_all(0.0)
 
 # connections lateral
 StrD1_StrD1 = ann.Projection(pre=StrD1, post=StrD1, target='inh', name='StrD1_StrD1')
-StrD1_StrD1.connect_all_to_all(weights=0.1)
+StrD1_StrD1.connect_all_to_all(weights=0.2)
 
 SNr_SNr = ann.Projection(pre=SNr, post=SNr, target='exc', synapse=ReversedSynapse, name='SNr_SNr')
 SNr_SNr.connect_all_to_all(weights=0.05)
 
 VL_VL = ann.Projection(pre=VL, post=VL, target='inh', name='VL_VL')
-VL_VL.connect_all_to_all(weights=0.1)
+VL_VL.connect_all_to_all(weights=0.05)
 
 M1_M1 = ann.Projection(pre=M1, post=M1, target='inh', name='M1_M1')
-M1_M1.connect_all_to_all(weights=0.05)
+M1_M1.connect_all_to_all(weights=0.1)
 
