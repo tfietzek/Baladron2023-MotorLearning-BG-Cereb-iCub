@@ -46,7 +46,7 @@ VL_M1.connect_one_to_one(weights=parameters['w_m1'])
 
 # connections feedback
 M1_StrD1 = ann.Projection(pre=M1, post=StrD1, target='exc', name='M1_StrD1')
-M1_StrD1.connect_one_to_one(weights=0.5)
+M1_StrD1.connect_one_to_one(weights=0.8)
 
 # connections Output
 w_cpg = weights_to_cpg(file=parameters['cpg_weights_file'],

@@ -61,7 +61,7 @@ def normalize_list_column(df, column_name, new_column_name=None):
 def training(df_train: pd.DataFrame,
              s1_column: str = 'r_output',
              m1_column: str = 'theta',
-             m1_scaling: float = 0.5,
+             m1_scaling: float = 0.3,
              wait_time: float = 50.,
              reach_time: float = 150.,
              save_path: Optional[str] = None,
@@ -182,8 +182,52 @@ def testing(df_test: pd.DataFrame,
 
 
 def plot_theta_errors(df_test: pd.DataFrame,
-                      save_path: Optional[str] = None,):
-    pass
+                      save_path: Optional[str] = None,
+                      scatter_subset: Optional[int] = None,):
+    import matplotlib.pyplot as plt
+
+    results_df = pd.DataFrame({
+        'theta': df_test['theta'],
+        'theta_pred': df_test['bg_theta_output'],
+        'theta_diff_true': df_test['theta'] - df_test['vision_theta'],
+        'theta_diff_pred': df_test['bg_theta_output'] - df_test['vision_theta']
+    })
+
+    error_stats = results_df.groupby('theta_diff_true')['theta_diff_pred'].agg(['mean', 'std']).reset_index()
+    error_stats.columns = ['diff', 'mean', 'std']
+    error_stats['se'] = error_stats['std'] / np.sqrt(
+        len(results_df.groupby('theta_diff_true')['theta_diff_pred'].count()))
+
+    # Calculate the upper and lower bounds for the error range
+    error_stats['lower_bound'] = error_stats['mean'] - error_stats['std']
+    error_stats['upper_bound'] = error_stats['mean'] + error_stats['std']
+
+    # Plot the mean error line for this dataset
+    fig = plt.figure(figsize=(10, 6))
+    plt.plot(error_stats['diff'], error_stats['mean'], 'b', label='Mean Error in Theta')
+
+    # Plot the shaded error range for this dataset
+    plt.fill_between(error_stats['diff'], error_stats['lower_bound'], error_stats['upper_bound'], alpha=0.1)
+
+    if scatter_subset is not None:
+        results_df = results_df.sample(n=scatter_subset)
+    plt.scatter(results_df['theta_diff_true'] + np.random.uniform(low=-0.5, high=0.5, size=len(results_df)),
+                results_df['theta_diff_pred'], s=0.04,
+                alpha=0.2, c='gray')
+
+    plt.legend()
+    plt.grid()
+    plt.ylabel('$\\theta^{proprio}_{true} - \\theta_{pred}$')
+    plt.xlabel('$\\theta^{proprio}_{true} - \\theta^{vision}_{true}$')
+    if save_path is not None:
+        if save_path[-1] != '/':
+            save_path += '/'
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        plt.savefig(save_path + 'theta_error.png')
+
+    plt.close(fig)
 
 
 def plot_cpg_errors(df_test: pd.DataFrame,
@@ -197,9 +241,9 @@ if __name__ == '__main__':
                             choices=("RHI_j11_sigma2", "RHI_j12_sigma4"), help="Abreviation of rhi data set")
     rhi_parser.add_argument('--rhi_data_path', type=str, default="data_out/data_RHI_jitter_1_1_sigma_prop_2.npz",
                             help="Path to Valentin's raw rhi data")
-    rhi_parser.add_argument('--monitoring_training', type=bool, default=True,
+    rhi_parser.add_argument('--monitoring_training', type=bool, default=False,
                             help="Monitor the training process?")
-    rhi_parser.add_argument('--monitoring_testing', type=bool, default=True,
+    rhi_parser.add_argument('--monitoring_testing', type=bool, default=False,
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
@@ -274,4 +318,4 @@ if __name__ == '__main__':
         print(df_test.columns)
 
     if rhi_args.do_plots:
-        pass
+        plot_theta_errors(df_test=df_test, save_path=testing_save_path, scatter_subset=10_000)

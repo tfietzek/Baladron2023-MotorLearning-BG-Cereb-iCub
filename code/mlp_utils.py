@@ -56,7 +56,7 @@ def merge_training_data(rhi_path: str,
                         normalize_rhi_data: bool = False,
                         save_name: Optional[str] = None) -> pd.DataFrame:
     if save_name is None:
-        save_name = "/training_data.parquet"
+        save_name = "training_data.parquet"
     save_path, _ = os.path.split(cpg_path)
     if os.path.isfile(save_path + save_name):
         return pd.read_parquet(save_path + save_name)
@@ -81,6 +81,8 @@ def merge_training_data(rhi_path: str,
     merged_df = pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
     # save
+    if save_path[-1] != '/':
+        save_path += '/'
     merged_df.to_parquet(save_path + save_name)
 
     return merged_df
@@ -91,7 +93,7 @@ def merge_test_data(rhi_path: str,
                     merge_nearest_neighbor: bool = False,
                     save_name: Optional[str] = None) -> pd.DataFrame:
     if save_name is None:
-        save_name = "/test_data.parquet"
+        save_name = "test_data.parquet"
     save_path, _ = os.path.split(cpg_path)
     if os.path.isfile(save_path + save_name):
         return pd.read_parquet(save_path + save_name)
@@ -125,6 +127,8 @@ def merge_test_data(rhi_path: str,
         merged_df = pd.merge(rhi_df, cpg_df, on='theta', how='left')
 
     # save
+    if save_path[-1] != '/':
+        save_path += '/'
     merged_df.to_parquet(save_path + save_name)
 
     return merged_df
