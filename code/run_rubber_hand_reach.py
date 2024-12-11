@@ -177,7 +177,8 @@ def testing(df_test: pd.DataFrame,
             os.makedirs(save_path)
 
         df_test.to_parquet(save_path + 'test_results.parquet')
-        pop_monitors.save(folder=save_path, delete=True)
+        if pop_monitors is not None:
+            pop_monitors.save(folder=save_path, delete=True)
 
     return df_test
 
