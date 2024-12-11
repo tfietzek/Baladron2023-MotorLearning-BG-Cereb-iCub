@@ -116,7 +116,8 @@ def training(df_train: pd.DataFrame,
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        pop_monitors.save(folder=save_path, delete=True)
+        if pop_monitors is not None:
+            pop_monitors.save(folder=save_path, delete=True)
         if con_monitors is not None:
             con_monitors.save_cons(folder=save_path)
             con_monitors.current_weight_diff(fig_size=(10, 10), save_name=save_path + 'weight_diff.pdf')
