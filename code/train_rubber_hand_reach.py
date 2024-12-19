@@ -82,12 +82,21 @@ def train_over_inputs(
     # enable learning
     ann.enable_learning()
 
+    m1_rates = []
+    cpgs = []
+    angles = []
+
     for i in indices:
-        simulate_reaching(s1_inputs=s1_inputs[i],
-                          m1_inputs=m1_inputs[i],
-                          training=True,
-                          wait_time=wait_time,
-                          reach_time=reach_time)
+        m1_rate = simulate_reaching(s1_inputs=s1_inputs[i],
+                                    m1_inputs=m1_inputs[i],
+                                    training=True,
+                                    wait_time=wait_time,
+                                    reach_time=reach_time)
+
+        cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate)
+        m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
+
+    return m1_rates, cpgs, angles
 
 
 def predict_over_inputs(

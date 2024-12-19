@@ -69,7 +69,7 @@ def training(df_train: pd.DataFrame,
              con_monitors: Optional[ConMonitor] = None,
              sub_samples: Optional[int] = None,
              normalize_s1_inputs: bool = True,
-             save_model: bool = True, ):
+             save_model: bool = True,):
 
     # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
@@ -91,10 +91,15 @@ def training(df_train: pd.DataFrame,
     if pop_monitors is not None:
         pop_monitors.start()
 
-    train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
-                      m1_inputs=df_train['m1_input'].tolist(),
-                      wait_time=wait_time,
-                      reach_time=reach_time)
+    m1_rates, cpgs_output, angles_output = train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
+                                                             m1_inputs=df_train['m1_input'].tolist(),
+                                                             wait_time=wait_time,
+                                                             reach_time=reach_time)
+
+    # add results to dataframe
+    df_train['bg_theta_output'] = angles_output
+    df_train['bg_cpg_output'] = cpgs_output
+    df_train['bg_m1_output'] = m1_rates
 
     if pop_monitors is not None:
         pop_monitors.stop()
@@ -117,6 +122,9 @@ def training(df_train: pd.DataFrame,
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
+        # save the training data
+        df_train.to_parquet(save_path + 'training_data.parquet')
+
         if pop_monitors is not None:
             pop_monitors.save(folder=save_path, delete=True)
         if con_monitors is not None:
@@ -138,7 +146,6 @@ def testing(df_test: pd.DataFrame,
             sub_samples: Optional[int] = None,
             normalize_s1_inputs: bool = True,
             load_model_path: Optional[str] = None, ):
-
     if load_model_path is not None:
         ann.load(load_model_path + '/bg_synapses.npz')
 
@@ -186,7 +193,7 @@ def testing(df_test: pd.DataFrame,
 
 def plot_theta_errors(df_test: pd.DataFrame,
                       save_path: Optional[str] = None,
-                      scatter_subset: Optional[int] = None,):
+                      scatter_subset: Optional[int] = None, ):
     import matplotlib.pyplot as plt
 
     results_df = pd.DataFrame({
@@ -233,24 +240,19 @@ def plot_theta_errors(df_test: pd.DataFrame,
     plt.close(fig)
 
 
-def plot_cpg_errors(df_test: pd.DataFrame,
-                    save_path: Optional[str] = None,):
-    pass
-
-
 if __name__ == '__main__':
     rhi_parser = argparse.ArgumentParser()
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
                             choices=("RHI_j11_sigma2", "RHI_j12_sigma4"), help="Abreviation of rhi data set")
     rhi_parser.add_argument('--rhi_data_path', type=str, default="data_out/data_RHI_jitter_1_1_sigma_prop_2.npz",
                             help="Path to Valentin's raw rhi data")
-    rhi_parser.add_argument('--monitoring_training', type=bool, default=False,
+    rhi_parser.add_argument('--monitoring_training', type=bool, default=True,
                             help="Monitor the training process?")
     rhi_parser.add_argument('--monitoring_testing', type=bool, default=False,
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.1, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.5, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_args = rhi_parser.parse_args()
 
@@ -274,7 +276,7 @@ if __name__ == '__main__':
         sampling_rate_testing = 1.
     else:
         n_samples = None
-        sampling_rate_training = 50.
+        sampling_rate_training = 100.
         sampling_rate_testing = 100.
 
     # compile model
@@ -287,8 +289,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, S1_StrD1],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r', 'w'],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, ],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r', ],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
