@@ -30,7 +30,7 @@ BaselineNeuron = ann.Neuron(
 
 StriatumNeuron = ann.Neuron(
     parameters="""
-        tau = 10.0 : population
+        tau = 20.0 : population
         baseline = 0.0
         noise = 0.0 : population
 """,
@@ -44,7 +44,7 @@ StriatumNeuron = ann.Neuron(
 
 M1Neuron = ann.Neuron(
     parameters="""
-        tau = 10.0 : population
+        tau = 20.0 : population
         baseline = 0.0
         noise = 0.0 : population
     """,
@@ -56,7 +56,7 @@ M1Neuron = ann.Neuron(
 
 LinearNeuron = ann.Neuron(
     parameters="""
-        tau = 10.0 : population
+        tau = 20.0 : population
         baseline = 0.0: population
         noise = 0.0 : population
     """,
@@ -68,7 +68,7 @@ LinearNeuron = ann.Neuron(
 
 DopamineNeuron = ann.Neuron(
     parameters="""
-        tau = 10.0 : population
+        tau = 20.0 : population
         firing = 0 : population, bool
         factor_inh = 10.0 : population
         baseline = 'baseline_dopa': population
@@ -97,14 +97,14 @@ ReversedSynapse = ann.Synapse(
 # DA_typ = 1  ==> D1 type  DA_typ = -1 ==> D2 type
 PostCovarianceNoThreshold = ann.Synapse(
     parameters="""
-        tau = 200.0 : projection
+        tau = 300.0 : projection
         tau_alpha = 100.0 : projection
         regularization_threshold = 0.7 : projection
         K_burst = 1.0 : projection
         K_dip = 0.4 : projection
         DA_type = 1 : projection
-        threshold_pre = 0.05 : projection
-        threshold_post = 0.1 : projection
+        threshold_pre = 0.1 : projection
+        threshold_post = 0.2 : projection
         baseline = 'baseline_dopa' : projection
     """,
     equations="""
