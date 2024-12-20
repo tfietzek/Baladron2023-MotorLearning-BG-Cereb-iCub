@@ -69,8 +69,7 @@ def training(df_train: pd.DataFrame,
              con_monitors: Optional[ConMonitor] = None,
              sub_samples: Optional[int] = None,
              normalize_s1_inputs: bool = True,
-             save_model: bool = True,):
-
+             save_model: bool = True, ):
     # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
                                              column_name=m1_column,
@@ -134,6 +133,8 @@ def training(df_train: pd.DataFrame,
 
         if save_model:
             ann.save(save_path + 'bg_synapses.npz')
+
+    return df_train
 
 
 def testing(df_test: pd.DataFrame,
@@ -240,6 +241,123 @@ def plot_theta_errors(df_test: pd.DataFrame,
     plt.close(fig)
 
 
+def plot_training_error(df_train: pd.DataFrame,
+                        rhi_theta_column: str = 'theta',
+                        bg_theta_column: str = 'bg_theta_output',
+                        bin_size: float = 0.5,
+                        save_path: Optional[str] = None):
+    """
+    Create a bar plot showing the frequency of differences between two theta columns.
+    """
+
+    import matplotlib.pyplot as plt
+
+    # Calculate differences between the two columns
+    theta_diff = df_train[rhi_theta_column] - df_train[bg_theta_column]
+
+    # Create histogram
+    fig = plt.figure(figsize=(10, 6))
+    plt.hist(theta_diff, bins=np.arange(min(theta_diff), max(theta_diff) + bin_size, bin_size),
+             edgecolor='black', alpha=0.7)
+
+    plt.xlabel(f'Difference ({rhi_theta_column} - {bg_theta_column})')
+    plt.ylabel('Frequency')
+    plt.title('Distribution of Theta Differences in Training')
+    plt.grid(True, alpha=0.3)
+
+    if save_path is not None:
+        if save_path[-1] != '/':
+            save_path += '/'
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        plt.savefig(save_path + 'training_error_dist.pdf')
+        plt.close(fig)
+    else:
+        plt.show()
+
+def plot_average_m1_firing_rates(df_train: pd.DataFrame,
+                                 rhi_theta_column: str = 'theta',
+                                 m1_column: str = 'bg_m1_output',
+                                 save_path: Optional[str] = None):
+    """
+    Create subplots showing average M1 firing rates for each unique theta value.
+    Each M1 firing rate is a list of length N=33.
+    """
+    import matplotlib.pyplot as plt
+
+    # Get unique theta values and sort them
+    unique_thetas = sorted(df_train[rhi_theta_column].unique())
+    n_thetas = len(unique_thetas)
+
+    # Calculate number of rows and columns for subplots
+    n_cols = min(5, n_thetas)  # Maximum 5 columns
+    n_rows = (n_thetas + n_cols - 1) // n_cols
+
+    # Create figure
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 3 * n_rows))
+    fig.suptitle('Average M1 Firing Rates by Theta Value')
+
+    # Flatten axes array for easier iteration
+    if n_rows > 1 and n_cols > 1:
+        axes = axes.flatten()
+    elif n_rows == 1 and n_cols > 1:
+        axes = axes.flatten()
+    elif n_rows > 1 and n_cols == 1:
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+
+    # Plot average firing rate for each theta
+    for idx, theta in enumerate(unique_thetas):
+        # Get all firing rate lists for this theta
+        firing_rates = df_train[df_train[rhi_theta_column] == theta][m1_column].tolist()
+
+        # Convert list of lists to 2D numpy array
+        firing_rates = np.array(firing_rates)
+
+        # Calculate mean and standard deviation
+        mean_rates = np.mean(firing_rates, axis=0)
+        std_rates = np.std(firing_rates, axis=0)
+
+        # Create x-axis values (timesteps)
+        timesteps = np.arange(len(mean_rates))
+
+        # Plot mean and standard deviation
+        axes[idx].plot(timesteps, mean_rates, 'b-', label='Mean')
+        axes[idx].fill_between(timesteps,
+                               mean_rates - std_rates,
+                               mean_rates + std_rates,
+                               alpha=0.2,
+                               color='b')
+
+        axes[idx].set_title(f'θ = {theta:.1f}')
+        axes[idx].grid(True, alpha=0.3)
+
+        if idx % n_cols == 0:  # Add y-label to leftmost plots
+            axes[idx].set_ylabel('Firing Rate')
+
+        if idx >= n_thetas - n_cols:  # Add x-label to bottom plots
+            axes[idx].set_xlabel('Timestep')
+
+    # Remove empty subplots if any
+    if n_thetas < len(axes):
+        for idx in range(n_thetas, len(axes)):
+            fig.delaxes(axes[idx])
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        if save_path[-1] != '/':
+            save_path += '/'
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        plt.savefig(save_path + 'm1_firing_rates.pdf')
+        plt.close(fig)
+    else:
+        plt.show()
+
 if __name__ == '__main__':
     rhi_parser = argparse.ArgumentParser()
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
@@ -298,11 +416,15 @@ if __name__ == '__main__':
         con_monitors_training = None
 
     print('Beginning training...')
-    training(df_train=df_train,
-             pop_monitors=pop_monitors_training,
-             con_monitors=con_monitors_training,
-             save_path=training_save_path,
-             sub_samples=n_samples)
+    df_train = training(df_train=df_train,
+                        pop_monitors=pop_monitors_training,
+                        con_monitors=con_monitors_training,
+                        save_path=training_save_path,
+                        sub_samples=n_samples)
+
+    if rhi_args.do_plots:
+        plot_training_error(df_train=df_train, save_path=training_save_path)
+        plot_average_m1_firing_rates(df_train=df_train, save_path=training_save_path)
 
     # testing
     df_test = merge_test_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_test_name)
