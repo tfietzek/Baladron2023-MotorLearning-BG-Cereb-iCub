@@ -97,14 +97,14 @@ ReversedSynapse = ann.Synapse(
 # DA_typ = 1  ==> D1 type  DA_typ = -1 ==> D2 type
 PostCovarianceNoThreshold = ann.Synapse(
     parameters="""
-        tau = 300.0 : projection
-        tau_alpha = 100.0 : projection
-        regularization_threshold = 0.7 : projection
+        tau = 200.0 : projection
+        tau_alpha = 200.0 : projection
+        regularization_threshold = 'alpha_regularization' : projection
         K_burst = 1.0 : projection
         K_dip = 0.4 : projection
         DA_type = 1 : projection
-        threshold_pre = 0.1 : projection
-        threshold_post = 0.2 : projection
+        threshold_pre = 'reg_threshold_s1' : projection
+        threshold_post = 'reg_threshold_d1' : projection
         baseline = 'baseline_dopa' : projection
     """,
     equations="""
@@ -114,7 +114,7 @@ PostCovarianceNoThreshold = ann.Synapse(
         condition_0 = if (trace>0.0) and (w >0.0): 1 else: 0
         dopa_mod =  if (DA_type*dopa_sum>0): DA_type*K_burst*dopa_sum
                     else: condition_0*DA_type*K_dip*dopa_sum
-        delta = dopa_mod * trace - alpha*pos(post.r - mean(post.r) - threshold_post) : min = 0.0
+        delta = dopa_mod * trace - alpha*pos(post.r - mean(post.r) - threshold_post)
         tau*dw/dt = delta : min = 0.0
     """,
     name="PostCovariance",

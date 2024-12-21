@@ -62,7 +62,7 @@ StrD1_SNc.connect_all_to_all(0.0)
 
 # connections lateral
 StrD1_StrD1 = ann.Projection(pre=StrD1, post=StrD1, target='inh', name='StrD1_StrD1')
-StrD1_StrD1.connect_all_to_all(weights=0.25)
+StrD1_StrD1.connect_all_to_all(weights=0.4)
 
 SNr_SNr = ann.Projection(pre=SNr, post=SNr, target='exc', synapse=ReversedSynapse, name='SNr_SNr')
 SNr_SNr.connect_all_to_all(weights=0.1)
@@ -71,5 +71,5 @@ VL_VL = ann.Projection(pre=VL, post=VL, target='inh', name='VL_VL')
 VL_VL.connect_all_to_all(weights=0.1)
 
 M1_M1 = ann.Projection(pre=M1, post=M1, target='inh', name='M1_M1')
-M1_M1.connect_all_to_all(weights=0.1)
+M1_M1.connect_all_to_all(weights=0.25)
 
