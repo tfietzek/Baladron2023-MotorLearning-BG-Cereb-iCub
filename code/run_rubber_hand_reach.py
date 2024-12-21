@@ -69,13 +69,18 @@ def training(df_train: pd.DataFrame,
              con_monitors: Optional[ConMonitor] = None,
              sub_samples: Optional[int] = None,
              normalize_s1_inputs: bool = True,
-             save_model: bool = True, ):
+             save_model: bool = True,
+             shuffle: bool = True,):
+
     # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
                                              column_name=m1_column,
                                              new_column_name='m1_input',
                                              inplace=True,
-                                             scaling=m1_scaling, )
+                                             scaling=m1_scaling,)
+    # shuffle data
+    if shuffle:
+        df_train = df_train.sample(frac=1).reset_index(drop=True)
 
     if sub_samples is not None:
         df_train = df_train.sample(sub_samples)
@@ -146,7 +151,13 @@ def testing(df_test: pd.DataFrame,
             pop_monitors: Optional[PopMonitor] = None,
             sub_samples: Optional[int] = None,
             normalize_s1_inputs: bool = True,
-            load_model_path: Optional[str] = None, ):
+            load_model_path: Optional[str] = None,
+            shuffle: bool = True,):
+
+    # shuffle data
+    if shuffle:
+        df_test = df_test.sample(frac=1).reset_index(drop=True)
+
     if load_model_path is not None:
         ann.load(load_model_path + '/bg_synapses.npz')
 
@@ -173,7 +184,7 @@ def testing(df_test: pd.DataFrame,
     df_test['bg_cpg_output'] = cpgs_output
     df_test['bg_m1_output'] = m1_rates
 
-    if sub_samples is not None:
+    if sub_samples is not None and pop_monitors is not None:
         pop_monitors.animate_current_monitors(
             clear_monitors=False,
         )
@@ -276,6 +287,7 @@ def plot_training_error(df_train: pd.DataFrame,
     else:
         plt.show()
 
+
 def plot_average_m1_firing_rates(df_train: pd.DataFrame,
                                  rhi_theta_column: str = 'theta',
                                  m1_column: str = 'bg_m1_output',
@@ -370,7 +382,7 @@ if __name__ == '__main__':
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.5, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.2, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_args = rhi_parser.parse_args()
 
@@ -388,10 +400,10 @@ if __name__ == '__main__':
         training_save_path = f'results/{rhi_args.data_set}/bg_reach_training_debug/'
         testing_save_path = f'results/{rhi_args.data_set}/bg_reach_testing_debug/'
         # reduce number of samples in the dataframes
-        n_samples = 20
+        n_samples = 300
         # monitoring sampling rates can be lower
-        sampling_rate_training = 1.
-        sampling_rate_testing = 1.
+        sampling_rate_training = 2.
+        sampling_rate_testing = 2.
     else:
         n_samples = None
         sampling_rate_training = 100.
@@ -407,8 +419,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, ],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r', ],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, S1_StrD1,],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r', 'w', ],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
@@ -445,5 +457,8 @@ if __name__ == '__main__':
     if rhi_args.debug:
         print(df_test.columns)
 
-    if rhi_args.do_plots:
+    if rhi_args.do_plots and not rhi_args.debug:
         plot_theta_errors(df_test=df_test, save_path=testing_save_path, scatter_subset=10_000)
+    elif rhi_args.do_plots and rhi_args.debug:
+        plot_theta_errors(df_test=df_test, save_path=testing_save_path, scatter_subset=n_samples)
+        plot_average_m1_firing_rates(df_train=df_test, save_path=testing_save_path)

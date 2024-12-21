@@ -60,7 +60,6 @@ def train_over_inputs(
         m1_inputs: np.ndarray | list,
         wait_time: float = 50.,
         reach_time: float = 350.,
-        shuffle: bool = True
 ):
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
@@ -75,10 +74,6 @@ def train_over_inputs(
     # check if
     assert s1_inputs.shape[0] == m1_inputs.shape[0], "Number of s1_inputs and m1_inputs should be equal"
 
-    indices = np.arange(s1_inputs.shape[0])
-    if shuffle:
-        np.random.shuffle(indices)
-
     # enable learning
     ann.enable_learning()
 
@@ -86,7 +81,7 @@ def train_over_inputs(
     cpgs = []
     angles = []
 
-    for i in indices:
+    for i in range(s1_inputs.shape[0]):
         m1_rate = simulate_reaching(s1_inputs=s1_inputs[i],
                                     m1_inputs=m1_inputs[i],
                                     training=True,
