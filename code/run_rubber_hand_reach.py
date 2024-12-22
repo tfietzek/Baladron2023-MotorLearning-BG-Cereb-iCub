@@ -64,6 +64,7 @@ def training(df_train: pd.DataFrame,
              m1_scaling: float = 0.4,
              wait_time: float = 50.,
              reach_time: float = 150.,
+             temperature_softmax: float = 0.1,
              save_path: Optional[str] = None,
              pop_monitors: Optional[PopMonitor] = None,
              con_monitors: Optional[ConMonitor] = None,
@@ -98,7 +99,8 @@ def training(df_train: pd.DataFrame,
     m1_rates, cpgs_output, angles_output = train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
                                                              m1_inputs=df_train['m1_input'].tolist(),
                                                              wait_time=wait_time,
-                                                             reach_time=reach_time)
+                                                             reach_time=reach_time,
+                                                             temperature=temperature_softmax)
 
     # add results to dataframe
     df_train['bg_theta_output'] = angles_output
@@ -146,7 +148,7 @@ def testing(df_test: pd.DataFrame,
             s1_column: str = 'r_output',
             wait_time: float = 50.,
             reach_time: float = 150.,
-            temperature_softmax: float = 0.5,
+            temperature_softmax: float = 0.1,
             save_path: Optional[str] = None,
             pop_monitors: Optional[PopMonitor] = None,
             sub_samples: Optional[int] = None,
@@ -382,7 +384,7 @@ if __name__ == '__main__':
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.2, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_args = rhi_parser.parse_args()
 
@@ -419,8 +421,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, S1_StrD1,],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r', 'w', ],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc,],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r',],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
@@ -432,7 +434,8 @@ if __name__ == '__main__':
                         pop_monitors=pop_monitors_training,
                         con_monitors=con_monitors_training,
                         save_path=training_save_path,
-                        sub_samples=n_samples)
+                        sub_samples=n_samples,
+                        temperature_softmax=rhi_args.temperature)
 
     if rhi_args.do_plots:
         plot_training_error(df_train=df_train, save_path=training_save_path)

@@ -13,8 +13,8 @@ format_time() {
 start_time=$(date +%s)
 
 # Run simulations in parallel
-python run_rubber_hand_reach.py --data_set RHI_j11_sigma2 --rhi_data_path data_out/data_RHI_jitter_1_1_sigma_prop_2.npz --temperature 0.5 &
-python run_rubber_hand_reach.py --data_set RHI_j12_sigma4 --rhi_data_path data_out/data_RHI_jitter_1_2_sigma_prop_4.npz --temperature 0.5 &
+python run_rubber_hand_reach.py --data_set RHI_j11_sigma2 --rhi_data_path data_out/data_RHI_jitter_1_1_sigma_prop_2.npz &
+python run_rubber_hand_reach.py --data_set RHI_j12_sigma4 --rhi_data_path data_out/data_RHI_jitter_1_2_sigma_prop_4.npz
 
 # Wait for all processes to finish
 wait

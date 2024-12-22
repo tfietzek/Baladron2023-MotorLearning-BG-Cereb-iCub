@@ -52,7 +52,7 @@ def simulate_cpg(m1_rates: np.ndarray,
     ann.step()
     ann.reset(monitors=False, populations=True)
 
-    return CPG_output.r, np.sum(decision * encodings_m1)
+    return CPG_output.r, np.dot(decision, encodings_m1)
 
 
 def train_over_inputs(
@@ -60,6 +60,7 @@ def train_over_inputs(
         m1_inputs: np.ndarray | list,
         wait_time: float = 50.,
         reach_time: float = 350.,
+        temperature: float = 0.1
 ):
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
@@ -88,9 +89,9 @@ def train_over_inputs(
                                     wait_time=wait_time,
                                     reach_time=reach_time)
 
-        cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate)
+        cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
         m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
-
+        print(angle_output)
     return m1_rates, cpgs, angles
 
 
@@ -121,6 +122,7 @@ def predict_over_inputs(
                                     reach_time=reach_time)
 
         cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
+        print(angle_output)
         m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
 
     return m1_rates, cpgs, angles
