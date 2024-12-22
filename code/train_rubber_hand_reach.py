@@ -91,7 +91,7 @@ def train_over_inputs(
 
         cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
         m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
-        print(angle_output)
+
     return m1_rates, cpgs, angles
 
 
@@ -122,7 +122,6 @@ def predict_over_inputs(
                                     reach_time=reach_time)
 
         cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
-        print(angle_output)
         m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
 
     return m1_rates, cpgs, angles
