@@ -61,7 +61,7 @@ def normalize_list_column(df, column_name, new_column_name=None):
 def training(df_train: pd.DataFrame,
              s1_column: str = 'r_output',
              m1_column: str = 'theta',
-             m1_scaling: float = 0.4,
+             m1_scaling: float = 0.5,
              wait_time: float = 50.,
              reach_time: float = 150.,
              temperature_softmax: float = 0.1,

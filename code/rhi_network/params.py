@@ -12,7 +12,10 @@ parameters = {
     # baseline values
     'baseline_snr': 1.0,
     'baseline_thalamus': 1.0,
+
+    # SNc
     'baseline_dopa': 0.2,
+    'regularization_rpe': 0.1,
 
     # connectivity strengths
     'init_w_striatum': 0.0,
@@ -22,8 +25,8 @@ parameters = {
     'w_cpg': 1.0,
 
     # s1 to striatum parameters
-    'reg_threshold_s1': 0.1,
-    'reg_threshold_d1': 0.15,
+    'reg_threshold_s1': 0.05,
+    'reg_threshold_d1': 0.1,
     'alpha_regularization': 0.6,
 
     # brainstem parameters
