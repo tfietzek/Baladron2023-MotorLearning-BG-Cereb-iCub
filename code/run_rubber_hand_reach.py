@@ -421,8 +421,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc,],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r',],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, S1_StrD1],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r', 'w'],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:

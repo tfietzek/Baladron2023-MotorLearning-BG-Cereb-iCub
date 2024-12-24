@@ -38,7 +38,7 @@ StriatumNeuron = ann.Neuron(
         tau*dmp/dt + mp = sum(exc) - sum(inh) + noise*Uniform(-1.0,1.0) + baseline
         r = tanh(pos(mp)) 
     """,
-    description="Striatum Neuron with normalized firing rates (FSN normalize MSN activity)."
+    description="Striatum Neuron with normalized firing rates (FSNs normalize MSNs activity)."
 
 )
 
@@ -97,7 +97,7 @@ ReversedSynapse = ann.Synapse(
 # DA_typ = 1  ==> D1 type  DA_typ = -1 ==> D2 type
 PostCovarianceNoThreshold = ann.Synapse(
     parameters="""
-        tau = 500.0 : projection
+        tau = 250.0 : projection
         tau_alpha = 500.0 : projection
         regularization_threshold = 'alpha_regularization' : projection
         K_burst = 1.0 : projection

@@ -15,7 +15,7 @@ parameters = {
 
     # SNc
     'baseline_dopa': 0.2,
-    'regularization_rpe': 0.1,
+    'regularization_rpe': 0.2,
 
     # connectivity strengths
     'init_w_striatum': 0.0,
