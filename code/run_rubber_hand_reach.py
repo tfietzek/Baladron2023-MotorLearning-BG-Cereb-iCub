@@ -402,7 +402,7 @@ if __name__ == '__main__':
         training_save_path = f'results/{rhi_args.data_set}/bg_reach_training_debug/'
         testing_save_path = f'results/{rhi_args.data_set}/bg_reach_testing_debug/'
         # reduce number of samples in the dataframes
-        n_samples = 300
+        n_samples = 1000
         # monitoring sampling rates can be lower
         sampling_rate_training = 2.
         sampling_rate_testing = 2.
@@ -421,8 +421,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, S1_StrD1],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r', 'w'],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc,],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r',],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
