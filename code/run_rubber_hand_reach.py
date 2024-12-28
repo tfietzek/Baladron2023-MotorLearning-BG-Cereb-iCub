@@ -386,6 +386,7 @@ if __name__ == '__main__':
     rhi_parser.add_argument('--debug', type=bool, default=False, )
     rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
+    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.6, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths
@@ -402,7 +403,7 @@ if __name__ == '__main__':
         training_save_path = f'results/{rhi_args.data_set}/bg_reach_training_debug/'
         testing_save_path = f'results/{rhi_args.data_set}/bg_reach_testing_debug/'
         # reduce number of samples in the dataframes
-        n_samples = 1000
+        n_samples = 200
         # monitoring sampling rates can be lower
         sampling_rate_training = 2.
         sampling_rate_testing = 2.
@@ -433,6 +434,7 @@ if __name__ == '__main__':
     df_train = training(df_train=df_train,
                         pop_monitors=pop_monitors_training,
                         con_monitors=con_monitors_training,
+                        m1_scaling=rhi_args.init_m1_scale,
                         save_path=training_save_path,
                         sub_samples=n_samples,
                         temperature_softmax=rhi_args.temperature)
