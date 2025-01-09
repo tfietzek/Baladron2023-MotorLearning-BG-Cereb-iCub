@@ -1,6 +1,4 @@
 import os
-import numpy as np
-import ANNarchy as ann
 import pandas as pd
 import argparse
 from typing import Optional
@@ -430,7 +428,8 @@ if __name__ == '__main__':
     # test training performance with congruent s1 representations
     df_train = testing(df_test=df_train,
                        temperature_softmax=rhi_args.temperature,
-                       save_path=training_save_path,)
+                       save_path=training_save_path,
+                       sub_samples=n_samples)
 
     if rhi_args.do_plots:
         plot_training_error(df_train=df_train, save_path=training_save_path)
