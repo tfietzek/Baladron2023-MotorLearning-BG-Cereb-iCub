@@ -64,21 +64,19 @@ def training(df_train: pd.DataFrame,
              m1_scaling: float = 0.5,
              wait_time: float = 50.,
              reach_time: float = 150.,
-             temperature_softmax: float = 0.1,
              save_path: Optional[str] = None,
              pop_monitors: Optional[PopMonitor] = None,
              con_monitors: Optional[ConMonitor] = None,
              sub_samples: Optional[int] = None,
              normalize_s1_inputs: bool = True,
              save_model: bool = True,
-             shuffle: bool = True,):
-
+             shuffle: bool = True, ):
     # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
                                              column_name=m1_column,
                                              new_column_name='m1_input',
                                              inplace=True,
-                                             scaling=m1_scaling,)
+                                             scaling=m1_scaling, )
     # shuffle data
     if shuffle:
         df_train = df_train.sample(frac=1).reset_index(drop=True)
@@ -96,16 +94,10 @@ def training(df_train: pd.DataFrame,
     if pop_monitors is not None:
         pop_monitors.start()
 
-    m1_rates, cpgs_output, angles_output = train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
-                                                             m1_inputs=df_train['m1_input'].tolist(),
-                                                             wait_time=wait_time,
-                                                             reach_time=reach_time,
-                                                             temperature=temperature_softmax)
-
-    # add results to dataframe
-    df_train['bg_theta_output'] = angles_output
-    df_train['bg_cpg_output'] = cpgs_output
-    df_train['bg_m1_output'] = m1_rates
+    train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
+                      m1_inputs=df_train['m1_input'].tolist(),
+                      wait_time=wait_time,
+                      reach_time=reach_time)
 
     if pop_monitors is not None:
         pop_monitors.stop()
@@ -127,9 +119,6 @@ def training(df_train: pd.DataFrame,
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-
-        # save the training data
-        df_train.to_parquet(save_path + 'training_data.parquet')
 
         if pop_monitors is not None:
             pop_monitors.save(folder=save_path, delete=True)
@@ -154,8 +143,7 @@ def testing(df_test: pd.DataFrame,
             sub_samples: Optional[int] = None,
             normalize_s1_inputs: bool = True,
             load_model_path: Optional[str] = None,
-            shuffle: bool = True,):
-
+            shuffle: bool = True, ):
     # shuffle data
     if shuffle:
         df_test = df_test.sample(frac=1).reset_index(drop=True)
@@ -257,7 +245,7 @@ def plot_theta_errors(df_test: pd.DataFrame,
 def plot_training_error(df_train: pd.DataFrame,
                         rhi_theta_column: str = 'theta',
                         bg_theta_column: str = 'bg_theta_output',
-                        bin_size: float = 0.5,
+                        bin_size: float = 0.2,
                         save_path: Optional[str] = None):
     """
     Create a bar plot showing the frequency of differences between two theta columns.
@@ -372,6 +360,7 @@ def plot_average_m1_firing_rates(df_train: pd.DataFrame,
     else:
         plt.show()
 
+
 if __name__ == '__main__':
     rhi_parser = argparse.ArgumentParser()
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
@@ -384,9 +373,9 @@ if __name__ == '__main__':
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.075, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
-    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.6, )
+    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.5, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths
@@ -422,8 +411,8 @@ if __name__ == '__main__':
     df_train = merge_training_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_train_name)
 
     if rhi_args.monitoring_training:
-        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc,],
-                                           variables=['r', 'r', 'r', 'r', 'r', 'r',],
+        pop_monitors_training = PopMonitor([S1, StrD1, SNr, VL, M1, SNc, ],
+                                           variables=['r', 'r', 'r', 'r', 'r', 'r', ],
                                            sampling_rate=sampling_rate_training)
         con_monitors_training = ConMonitor([S1_StrD1])
     else:
@@ -431,19 +420,23 @@ if __name__ == '__main__':
         con_monitors_training = None
 
     print('Beginning training...')
-    df_train = training(df_train=df_train,
-                        pop_monitors=pop_monitors_training,
-                        con_monitors=con_monitors_training,
-                        m1_scaling=rhi_args.init_m1_scale,
-                        save_path=training_save_path,
-                        sub_samples=n_samples,
-                        temperature_softmax=rhi_args.temperature)
+    training(df_train=df_train,
+             pop_monitors=pop_monitors_training,
+             con_monitors=con_monitors_training,
+             m1_scaling=rhi_args.init_m1_scale,
+             save_path=training_save_path,
+             sub_samples=n_samples)
+
+    # test training performance with congruent s1 representations
+    df_train = testing(df_test=df_train,
+                       temperature_softmax=rhi_args.temperature,
+                       save_path=training_save_path,)
 
     if rhi_args.do_plots:
         plot_training_error(df_train=df_train, save_path=training_save_path)
         plot_average_m1_firing_rates(df_train=df_train, save_path=training_save_path)
 
-    # testing
+    # test on incongruent s1 representations
     df_test = merge_test_data(rhi_path=rhi_raw_path, cpg_path=cpg_path, save_name=df_test_name)
 
     if rhi_args.monitoring_testing:
