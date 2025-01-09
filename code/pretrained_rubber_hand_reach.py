@@ -5,6 +5,7 @@ from rhi_network.reaching_model import *
 from monitoring import PopMonitor
 from train_rubber_hand_reach import simulate_reaching, predict_over_inputs
 from mlp_utils import merge_training_data
+from run_rubber_hand_reach import normalize_list_column
 
 
 if __name__ == '__main__':
@@ -29,6 +30,8 @@ if __name__ == '__main__':
                                    cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
                                    save_name='/RHI_j11_sigma2_training.parquet').sample(n_samples)
 
+    # normalise
+    df_train = normalize_list_column(df_train, column_name='r_output')
     s1_inputs = df_train['r_output'].tolist()
 
     # simulate
