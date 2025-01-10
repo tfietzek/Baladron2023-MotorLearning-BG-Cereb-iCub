@@ -97,8 +97,8 @@ ReversedSynapse = ann.Synapse(
 # DA_typ = 1  ==> D1 type  DA_typ = -1 ==> D2 type
 PostCovarianceNoThreshold = ann.Synapse(
     parameters="""
-        tau = 1500.0 : projection
-        tau_alpha = 1500.0 : projection
+        tau = 1000.0 : projection
+        tau_alpha = 1000.0 : projection
         regularization_threshold = 'alpha_regularization' : projection
         K_burst = 1.0 : projection
         K_dip = 0.4 : projection
