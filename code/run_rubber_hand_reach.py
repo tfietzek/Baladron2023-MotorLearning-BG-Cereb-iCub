@@ -373,7 +373,7 @@ if __name__ == '__main__':
     rhi_parser.add_argument('--debug', type=bool, default=False, )
     rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
-    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.6, )
+    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.75, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths

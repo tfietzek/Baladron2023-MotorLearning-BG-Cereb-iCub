@@ -65,10 +65,10 @@ StrD1_StrD1 = ann.Projection(pre=StrD1, post=StrD1, target='inh', name='StrD1_St
 StrD1_StrD1.connect_all_to_all(weights=0.5)
 
 SNr_SNr = ann.Projection(pre=SNr, post=SNr, target='exc', synapse=ReversedSynapse, name='SNr_SNr')
-SNr_SNr.connect_all_to_all(weights=0.15)
+SNr_SNr.connect_all_to_all(weights=0.2)
 
 VL_VL = ann.Projection(pre=VL, post=VL, target='inh', name='VL_VL')
-VL_VL.connect_all_to_all(weights=0.15)
+VL_VL.connect_all_to_all(weights=0.2)
 
 M1_M1 = ann.Projection(pre=M1, post=M1, target='inh', name='M1_M1')
 M1_M1.connect_all_to_all(weights=0.3)
