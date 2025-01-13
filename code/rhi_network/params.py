@@ -26,8 +26,8 @@ parameters = {
 
     # s1 to striatum parameters
     'reg_threshold_s1': 0.1,
-    'reg_threshold_d1': 0.15,
-    'alpha_regularization': 0.7,
+    'reg_threshold_d1': 0.2,
+    'alpha_regularization': 0.9,
 
     # brainstem parameters
     'encodings_m1': np.arange(16, 81, 2, dtype=np.float16),
