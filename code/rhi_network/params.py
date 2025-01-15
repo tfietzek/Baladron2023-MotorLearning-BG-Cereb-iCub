@@ -13,6 +13,10 @@ parameters = {
     'baseline_snr': 1.0,
     'baseline_thalamus': 1.0,
 
+    # time constants
+    'cov_tau': 1500.0,
+    'cov_alpha': 2000.0,
+
     # SNc
     'baseline_dopa': 0.2,
     'regularization_rpe': 0.2,
@@ -23,6 +27,13 @@ parameters = {
     'w_thalamus': 1.0,
     'w_m1': 1.0,
     'w_cpg': 1.0,
+    'w_fb_m1': 0.6,
+
+    # laterals
+    'w_strD1_strD1': 0.5,
+    'w_snr_snr': 0.25,
+    'w_thalamus_thalamus': 0.25,
+    'w_m1_m1': 0.3,
 
     # s1 to striatum parameters
     'reg_threshold_s1': 0.1,
