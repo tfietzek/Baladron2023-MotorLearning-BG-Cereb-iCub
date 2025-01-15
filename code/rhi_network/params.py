@@ -27,7 +27,7 @@ parameters = {
     'w_thalamus': 1.0,
     'w_m1': 1.0,
     'w_cpg': 1.0,
-    'w_fb_m1': 0.6,
+    'w_fb_m1': 0.5,
 
     # laterals
     'w_strD1_strD1': 0.5,

@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import pandas as pd
 import argparse
 from typing import Optional
@@ -373,7 +375,7 @@ if __name__ == '__main__':
     rhi_parser.add_argument('--debug', type=bool, default=False, )
     rhi_parser.add_argument('--temperature', type=float, default=0.1, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
-    rhi_parser.add_argument('--init_m1_scale', type=float, default=0.75, )
+    rhi_parser.add_argument('--init_m1_scale', type=float, default=1.0, )
     rhi_args = rhi_parser.parse_args()
 
     # data paths
@@ -427,6 +429,7 @@ if __name__ == '__main__':
 
     # test training performance with congruent s1 representations
     df_train = testing(df_test=df_train,
+                       reach_time=300.,
                        temperature_softmax=rhi_args.temperature,
                        save_path=training_save_path,
                        sub_samples=n_samples)
@@ -446,6 +449,7 @@ if __name__ == '__main__':
 
     print('Beginning testing...')
     df_test = testing(df_test=df_test,
+                      reach_time=250.,
                       pop_monitors=pop_monitors_testing,
                       save_path=testing_save_path,
                       sub_samples=n_samples,
@@ -453,6 +457,7 @@ if __name__ == '__main__':
 
     if rhi_args.debug:
         print(df_test.columns)
+        print(np.amax(np.array(S1_StrD1.w), axis=1))
 
     if rhi_args.do_plots and not rhi_args.debug:
         plot_theta_errors(df_test=df_test, save_path=testing_save_path, scatter_subset=10_000)

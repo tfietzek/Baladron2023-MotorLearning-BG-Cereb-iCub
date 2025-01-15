@@ -561,7 +561,7 @@ class ConMonitor(object):
     def weight_difference(monitors: dict,
                           t_init: int = 0, t_end: int = -1,
                           plot_order: tuple[int, int] | None = None,
-                          fig_size: tuple[float, float] | list[float, float] = (10, 10),
+                          fig_size: tuple[float, float] | list[float, float] = (15, 8),
                           save_name: str = None):
         """
         Function to calculate the weight difference based on the provided monitors.
@@ -586,23 +586,28 @@ class ConMonitor(object):
             subfig.suptitle(key)
 
             result = monitors[key][t_end] - monitors[key][t_init]
-            # type of plot is dependent on dimension
+
             if result.ndim == 1:
-                # plot
                 ax = subfig.subplots()
                 ax.plot(np.arange(len(result)) + 1, result)
             elif result.ndim == 2:
-                # imshow
                 ax = subfig.subplots()
-                ax.imshow(result, cmap='RdBu', origin='lower', interpolation='none')
+                im = ax.imshow(result, cmap='RdBu', origin='lower', interpolation='none')
+                subfig.colorbar(im, ax=ax)  # Add colorbar here
             elif result.ndim == 3:
                 sub_rows, sub_cols = find_largest_factors(result.shape[0])
                 axs = subfig.subplots(nrows=sub_rows, ncols=sub_cols)
 
+                vmax = np.amax(result)
+                vmin = np.amin(result)
+
                 for inner_i, ax in enumerate(axs.flat):
-                    ax.imshow(result[inner_i], cmap='RdBu', origin='lower', interpolation='none',
-                              vmax=np.amax(result), vmin=np.amin(result))
-                    ax.tick_params(axis="both", labelsize=4 + 24/result.shape[0])
+                    im = ax.imshow(result[inner_i], cmap='RdBu', origin='lower', interpolation='none',
+                                   vmax=vmax, vmin=vmin)
+                    ax.tick_params(axis="both", labelsize=4 + 24 / result.shape[0])
+
+                # Add a single colorbar for all subplots
+                subfig.colorbar(im, ax=axs)
             else:
                 if result.ndim > 4:
                     result = numpy_reshape(result, dim=4)
@@ -613,10 +618,17 @@ class ConMonitor(object):
                 sub_rows, sub_cols = find_largest_factors(dim1 * dim2)
                 axs = subfig.subplots(nrows=sub_rows, ncols=sub_cols)
 
+                vmax = np.amax(result)
+                vmin = np.amin(result)
+
                 for inner_i, ax in enumerate(axs.flat):
-                    ax.imshow(result[int(inner_i%dim1), int(inner_i%dim2)], cmap='RdBu', origin='lower', interpolation='none',
-                              vmax=np.amax(result), vmin=np.amin(result))
+                    im = ax.imshow(result[int(inner_i % dim1), int(inner_i % dim2)], cmap='RdBu',
+                                   origin='lower', interpolation='none',
+                                   vmax=vmax, vmin=vmin)
                     ax.tick_params(axis="both", labelsize=4 + 24 / result.shape[0])
+
+                # Add a single colorbar for all subplots
+                subfig.colorbar(im, ax=axs)
 
         if save_name is None:
             plt.show()
