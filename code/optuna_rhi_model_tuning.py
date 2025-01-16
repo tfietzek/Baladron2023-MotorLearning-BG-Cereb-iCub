@@ -57,11 +57,11 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     }
 
 
-def objective(trial: optuna.Trial, df_train: pd.DataFrame, trial_id: int) -> float:
+def objective(trial: optuna.Trial, df_train: pd.DataFrame, process_id: int) -> float:
     """Objective function for Optuna optimization."""
-    # Create unique compile and save paths for this trial
-    compile_path = f'annarchy/optuna_trials/trial_{trial_id}/'
-    save_path = f'results/optuna_trials/trial_{trial_id}/'
+    # Create unique compile and save paths for this process and trial
+    compile_path = f'annarchy/optuna_trials/process_{process_id}/'
+    save_path = f'results/optuna_trials/trial_{trial.number}/'
 
     if not os.path.exists(compile_path):
         os.makedirs(compile_path)
@@ -105,7 +105,7 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame, trial_id: int) -> flo
             df_test=df_train,
             save_path=save_path,
             pop_monitors=None,
-            temperature_softmax=0.1  # Might be useful for optimization
+            temperature_softmax=0.1
         )
 
         # Calculate error metric (mean squared error between predicted and true theta)
@@ -114,7 +114,7 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame, trial_id: int) -> flo
         return mse
 
     except Exception as e:
-        print(f"Error in trial {trial_id}: {str(e)}")
+        print(f"Error in trial {trial.number}: {str(e)}")
         return float('inf')  # Return infinity for failed trials
 
 
@@ -125,6 +125,7 @@ def run_optimization(df_train: pd.DataFrame,
                      study_name: str = "hyperparameter_optimization") -> optuna.Study:
     """Run the hyperparameter optimization with parallel processing."""
 
+    # Create study using Optuna's built-in storage
     study = optuna.create_study(
         study_name=study_name,
         storage=storage,
@@ -133,19 +134,22 @@ def run_optimization(df_train: pd.DataFrame,
         sampler=TPESampler(seed=42)
     )
 
-    # Create partial objective function with fixed arguments
+    # Create objective functions with process IDs for each worker
     from functools import partial
-    objective_partial = partial(
-        objective,
-        df_train=df_train
-    )
+    objectives = [
+        partial(objective, df_train=df_train, process_id=i)
+        for i in range(n_jobs)
+    ]
 
     # Run optimization with parallel processing
+    from optuna.study import MaxTrialsCallback
+
     study.optimize(
-        objective_partial,
+        objectives,
         n_trials=n_trials,
         n_jobs=n_jobs,
-        gc_after_trial=True
+        gc_after_trial=True,
+        callbacks=[MaxTrialsCallback(n_trials, states=(optuna.trial.TrialState.COMPLETE,))]
     )
 
     print("\nOptimization completed!")
