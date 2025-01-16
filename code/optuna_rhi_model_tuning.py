@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, Optional, Tuple
 import pandas as pd
+import multiprocessing
 
 from rhi_network.reaching_model import *
 from run_rubber_hand_reach import training, testing
@@ -57,18 +58,19 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     }
 
 
-def objective(trial: optuna.Trial, df_train: pd.DataFrame, process_id: int) -> float:
+def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
     """Objective function for Optuna optimization."""
-    # Create unique compile and save paths for this process and trial
-    compile_path = f'annarchy/optuna_trials/process_{process_id}/'
+    # Create unique compile and save paths based on worker process
+    process_id = multiprocessing.current_process().name
+    compile_path = f'annarchy/optuna_trials/{process_id}/'
     save_path = f'results/optuna_trials/trial_{trial.number}/'
 
     if not os.path.exists(compile_path):
-        os.makedirs(compile_path)
+        os.makedirs(compile_path, exist_ok=True)
     if not os.path.exists(save_path):
-        os.makedirs(save_path)
+        os.makedirs(save_path, exist_ok=True)
 
-    # Compile ANNarchy for this trial
+    # Compile Model
     ann.compile(directory=compile_path, clean=True)
 
     # Get parameter bounds
@@ -87,10 +89,10 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame, process_id: int) -> f
         'rpe_threshold': trial.suggest_float('rpe_threshold', *bounds['rpe_threshold'])
     }
 
-    # Update model parameters
-    update_model_params(**params)
-
     try:
+        # Update model parameters
+        update_model_params(**params)
+
         # Train the model
         training(
             df_train=df_train.copy(),
@@ -134,22 +136,17 @@ def run_optimization(df_train: pd.DataFrame,
         sampler=TPESampler(seed=42)
     )
 
-    # Create objective functions with process IDs for each worker
+    # Create objective function with only required arguments
     from functools import partial
-    objectives = [
-        partial(objective, df_train=df_train, process_id=i)
-        for i in range(n_jobs)
-    ]
+    objective_partial = partial(objective, df_train=df_train)
 
-    # Run optimization with parallel processing
-    from optuna.study import MaxTrialsCallback
-
+    # Run optimization
     study.optimize(
-        objectives,
+        objective_partial,
         n_trials=n_trials,
         n_jobs=n_jobs,
         gc_after_trial=True,
-        callbacks=[MaxTrialsCallback(n_trials, states=(optuna.trial.TrialState.COMPLETE,))]
+        show_progress_bar=True
     )
 
     print("\nOptimization completed!")
