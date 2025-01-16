@@ -3,10 +3,8 @@ import optuna
 from optuna.samplers import TPESampler
 import numpy as np
 import os
-from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, Optional, Tuple
 import pandas as pd
-import multiprocessing
 
 from rhi_network.reaching_model import *
 from run_rubber_hand_reach import training, testing
@@ -48,10 +46,10 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     return {
         'learn_tau': (100.0, 5000.0),
         'w_lat_strD1': (0.01, 1.0),
-        'w_lat_snr': (0.01, 2.0),
-        'w_lat_m1': (0.01, 2.0),
-        'w_lat_vl': (0.01, 2.0),
-        'w_fb_m1': (0.2, 1.5),
+        'w_lat_snr': (0.01, 1.0),
+        'w_lat_m1': (0.01, 1.0),
+        'w_lat_vl': (0.01, 1.0),
+        'w_fb_m1': (0.2, 1.2),
         'pre_threshold': (0.0, 0.5),
         'post_threshold': (0.0, 0.5),
         'rpe_threshold': (0.0, 0.5)
@@ -60,18 +58,10 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
 
 def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
     """Objective function for Optuna optimization."""
-    # Create unique compile and save paths based on worker process
-    process_id = multiprocessing.current_process().name
-    compile_path = f'annarchy/optuna_trials/{process_id}/'
+    # Create save path for this trial
     save_path = f'results/optuna_trials/trial_{trial.number}/'
-
-    if not os.path.exists(compile_path):
-        os.makedirs(compile_path, exist_ok=True)
     if not os.path.exists(save_path):
-        os.makedirs(save_path, exist_ok=True)
-
-    # Compile Model
-    ann.compile(directory=compile_path, clean=True)
+        os.makedirs(save_path)
 
     # Get parameter bounds
     bounds = define_parameter_bounds()
@@ -90,6 +80,9 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
     }
 
     try:
+        # Reset S1_StrD1 weights before updating parameters
+        S1_StrD1.w = 0.0
+
         # Update model parameters
         update_model_params(**params)
 
@@ -99,7 +92,8 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
             save_path=save_path,
             save_model=True,
             pop_monitors=None,
-            con_monitors=None
+            con_monitors=None,
+            m1_scaling=1.0,  # Might be a hyperparameter
         )
 
         # Test the model
@@ -107,11 +101,22 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
             df_test=df_train,
             save_path=save_path,
             pop_monitors=None,
-            temperature_softmax=0.1
+            temperature_softmax=0.05  # Might be a hyperparameter
         )
 
         # Calculate error metric (mean squared error between predicted and true theta)
         mse = np.mean((df_train['theta'] - df_train['bg_theta_output']) ** 2)
+
+        # Save trial results
+        trial_results = {
+            'trial_number': trial.number,
+            'mse': mse,
+            **params
+        }
+        pd.DataFrame([trial_results]).to_csv(
+            os.path.join(save_path, 'trial_results.csv'),
+            index=False
+        )
 
         return mse
 
@@ -122,10 +127,9 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
 
 def run_optimization(df_train: pd.DataFrame,
                      n_trials: int = 100,
-                     n_jobs: int = 4,
                      storage: str = "sqlite:///optuna_results.db",
                      study_name: str = "hyperparameter_optimization") -> optuna.Study:
-    """Run the hyperparameter optimization with parallel processing."""
+    """Run the hyperparameter optimization sequentially."""
 
     # Create study using Optuna's built-in storage
     study = optuna.create_study(
@@ -140,11 +144,11 @@ def run_optimization(df_train: pd.DataFrame,
     from functools import partial
     objective_partial = partial(objective, df_train=df_train)
 
-    # Run optimization
+    # Run optimization sequentially
     study.optimize(
         objective_partial,
         n_trials=n_trials,
-        n_jobs=n_jobs,
+        n_jobs=1,  # Run sequentially
         gc_after_trial=True,
         show_progress_bar=True
     )
@@ -152,6 +156,14 @@ def run_optimization(df_train: pd.DataFrame,
     print("\nOptimization completed!")
     print(f"Best trial MSE: {study.best_value}")
     print("Best parameters:", study.best_params)
+
+    # Save best parameters
+    best_params_df = pd.DataFrame([study.best_params])
+    os.makedirs('results/optuna_trials/', exist_ok=True)
+    best_params_df.to_csv(
+        os.path.join('results/optuna_trials/', 'best_params.csv'),
+        index=False
+    )
 
     return study
 
@@ -165,12 +177,17 @@ if __name__ == "__main__":
     parser.add_argument('--rhi_data_path', type=str,
                         default="data_out/data_RHI_jitter_1_1_sigma_prop_2.npz")
     parser.add_argument('--n_trials', type=int, default=100)
-    parser.add_argument('--n_jobs', type=int, default=4)
     parser.add_argument('--storage', type=str, default="sqlite:///optuna_results.db")
     args = parser.parse_args()
 
     # Set up paths
     cpg_path = f'results/{args.data_set}/network_inverse_kinematic/best_inverse_results.npz'
+
+    # Compile ANNarchy once at the start
+    compile_folder = f'annarchy/{args.data_set}/'
+    if not os.path.exists(compile_folder):
+        os.makedirs(compile_folder)
+    ann.compile(directory=compile_folder, clean=True)
 
     # Load training data
     df_train = merge_training_data(
@@ -183,7 +200,6 @@ if __name__ == "__main__":
     study = run_optimization(
         df_train=df_train,
         n_trials=args.n_trials,
-        n_jobs=args.n_jobs,
         storage=args.storage,
         study_name=f"hyperparameter_optimization_{args.data_set}"
     )
