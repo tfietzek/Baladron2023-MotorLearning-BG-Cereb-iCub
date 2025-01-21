@@ -130,7 +130,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame) -> float:
         return float('inf')  # Return infinity for failed trials
 
 
-def run_optimization(df_train: pd.DataFrame,
+def run_optimization(df: pd.DataFrame,
                      n_trials: int = 100,
                      data_set: str = "RHI_j11_sigma2",
                      storage: str = "sqlite:///optuna_results.db",
@@ -148,7 +148,7 @@ def run_optimization(df_train: pd.DataFrame,
 
     # Create objective function with only required arguments
     from functools import partial
-    objective_partial = partial(objective, df_train=df_train)
+    objective_partial = partial(objective, df=df)
 
     # Run optimization sequentially
     study.optimize(
@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     # Run optimization
     study = run_optimization(
-        df_train=df,
+        df=df,
         n_trials=args.n_trials,
         storage=args.storage,
         data_set=args.data_set,
