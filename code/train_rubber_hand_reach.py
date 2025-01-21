@@ -22,11 +22,16 @@ def simulate_reaching(
     # simulate reaching process
     S1.baseline = s1_inputs
     if training:
-        SNc.firing = 1
-    if m1_inputs is not None:
+        # build up baseline activities
         M1.baseline = m1_inputs
+        ann.simulate(50.)
+        # reward
+        SNc.firing = 1
+        ann.simulate(reach_time)
+    else:
+        ann.simulate(reach_time)
 
-    ann.simulate(reach_time)
+    # Readout
     m1_rates = M1.r
 
     # reset to start conditions

@@ -5,6 +5,7 @@ import numpy as np
 import os
 from typing import Dict, Optional, Tuple
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from rhi_network.reaching_model import *
 from run_rubber_hand_reach import training, testing
@@ -44,24 +45,26 @@ def update_model_params(
 def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     """Define the bounds for each hyperparameter."""
     return {
-        'learn_tau': (100.0, 5000.0),
-        'w_lat_strD1': (0.01, 1.0),
-        'w_lat_snr': (0.01, 1.0),
-        'w_lat_m1': (0.01, 1.0),
-        'w_lat_vl': (0.01, 1.0),
-        'w_fb_m1': (0.2, 1.2),
+        'learn_tau': (500.0, 5000.0),
+        'w_lat_strD1': (0.05, 1.0),
+        'w_lat_snr': (0.05, 1.0),
+        'w_lat_m1': (0.05, 1.0),
+        'w_lat_vl': (0.05, 1.0),
+        'w_fb_m1': (0.2, 1.5),
         'pre_threshold': (0.0, 0.5),
         'post_threshold': (0.0, 0.5),
         'rpe_threshold': (0.0, 0.5)
     }
 
 
-def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
+def objective(trial: optuna.Trial, df: pd.DataFrame) -> float:
     """Objective function for Optuna optimization."""
     # Create save path for this trial
     save_path = f'results/optuna_trials/trial_{trial.number}/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
 
     # Get parameter bounds
     bounds = define_parameter_bounds()
@@ -88,24 +91,26 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
 
         # Train the model
         training(
-            df_train=df_train.copy(),
+            df_train=df_train,
             save_path=save_path,
             save_model=True,
             pop_monitors=None,
             con_monitors=None,
+            shuffle=False,
             m1_scaling=1.0,  # Might be a hyperparameter
         )
 
         # Test the model
-        df_train = testing(
-            df_test=df_train,
+        df_test = testing(
+            df_test=df_test,
             save_path=save_path,
             pop_monitors=None,
+            shuffle=False,
             temperature_softmax=0.05  # Might be a hyperparameter
         )
 
         # Calculate error metric (mean squared error between predicted and true theta)
-        mse = np.mean((df_train['theta'] - df_train['bg_theta_output']) ** 2)
+        mse = np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
 
         # Save trial results
         trial_results = {
@@ -127,6 +132,7 @@ def objective(trial: optuna.Trial, df_train: pd.DataFrame) -> float:
 
 def run_optimization(df_train: pd.DataFrame,
                      n_trials: int = 100,
+                     data_set: str = "RHI_j11_sigma2",
                      storage: str = "sqlite:///optuna_results.db",
                      study_name: str = "hyperparameter_optimization") -> optuna.Study:
     """Run the hyperparameter optimization sequentially."""
@@ -159,9 +165,9 @@ def run_optimization(df_train: pd.DataFrame,
 
     # Save best parameters
     best_params_df = pd.DataFrame([study.best_params])
-    os.makedirs('results/optuna_trials/', exist_ok=True)
+    os.makedirs(f'results/{data_set}/optuna_trials/', exist_ok=True)
     best_params_df.to_csv(
-        os.path.join('results/optuna_trials/', 'best_params.csv'),
+        os.path.join(f'results/{data_set}/optuna_trials/', 'best_params.csv'),
         index=False
     )
 
@@ -184,22 +190,26 @@ if __name__ == "__main__":
     cpg_path = f'results/{args.data_set}/network_inverse_kinematic/best_inverse_results.npz'
 
     # Compile ANNarchy once at the start
-    compile_folder = f'annarchy/{args.data_set}/'
+    compile_folder = f'annarchy/optuna_rhi_model_tuning/{args.data_set}/'
     if not os.path.exists(compile_folder):
         os.makedirs(compile_folder)
     ann.compile(directory=compile_folder, clean=True)
 
     # Load training data
-    df_train = merge_training_data(
+    df = merge_training_data(
         rhi_path=args.rhi_data_path,
         cpg_path=cpg_path,
         save_name=f'{args.data_set}_training.parquet'
     )
 
+    # Shuffle the dataframe with a fixed seed, we don't want to do it in the hyperparameter optimization
+    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+
     # Run optimization
     study = run_optimization(
-        df_train=df_train,
+        df_train=df,
         n_trials=args.n_trials,
         storage=args.storage,
+        data_set=args.data_set,
         study_name=f"hyperparameter_optimization_{args.data_set}"
     )

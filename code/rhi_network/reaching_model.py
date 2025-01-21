@@ -2,7 +2,7 @@ from .definitions import *
 from .connections import weights_to_cpg
 
 
-ann.setup(num_threads=4)
+ann.setup(num_threads=6)
 
 # input populations
 S1 = ann.Population(geometry=parameters['dim_s1'], neuron=BaselineNeuron, name='S1')
