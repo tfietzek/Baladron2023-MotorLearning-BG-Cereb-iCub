@@ -57,7 +57,10 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     }
 
 
-def objective(trial: optuna.Trial, df: pd.DataFrame) -> float:
+def objective(trial: optuna.Trial, df: pd.DataFrame,
+              weight_theta_error: float = 0.1,
+              weight_sparseness_error: float = 100.) -> float:
+
     """Objective function for Optuna optimization."""
     # Create save path for this trial
     save_path = f'results/optuna_trials/trial_{trial.number}/'
@@ -111,8 +114,8 @@ def objective(trial: optuna.Trial, df: pd.DataFrame) -> float:
         )
 
         # Calculate error metric (mean squared error between predicted and true theta)
-        mse = np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
-        mse += 1000 * np.mean((df_test['sparse_error']) ** 2)  # asure that there is really activity
+        mse = weight_theta_error * np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
+        mse += weight_sparseness_error * np.sum(df_test['sparse_error'].mean())  # asure that there is really activity that is sparse
 
         # Save trial results
         trial_results = {

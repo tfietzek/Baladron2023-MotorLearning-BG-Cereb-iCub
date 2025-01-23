@@ -144,7 +144,8 @@ def testing(df_test: pd.DataFrame,
             normalize_s1_inputs: bool = True,
             load_model_path: Optional[str] = None,
             shuffle: bool = True,
-            append_sparse_error: bool = True, ):
+            append_sparse_error: bool = False, ):
+
     # shuffle data
     if shuffle:
         df_test = df_test.sample(frac=1).reset_index(drop=True)
@@ -176,13 +177,13 @@ def testing(df_test: pd.DataFrame,
     df_test['bg_m1_output'] = m1_rates
 
     if append_sparse_error:
-        df_test['sparse_error'] = create_one_hot_encoded_column(df_test,
-                                                                column_name='theta',
-                                                                new_column_name='m1_input',
-                                                                inplace=True,
-                                                                scaling=0.5)
+        df_test = create_one_hot_encoded_column(df_test,
+                                                column_name='theta',
+                                                new_column_name='sparse_error',
+                                                inplace=True,
+                                                scaling=0.5)
 
-        df_test['sparse_error'] = df_test['sparse_error'] - df_test['bg_m1_output']
+        df_test['sparse_error'] = np.abs(df_test['sparse_error'] - df_test['bg_m1_output'])
 
     if sub_samples is not None and pop_monitors is not None:
         pop_monitors.animate_current_monitors(
@@ -442,7 +443,8 @@ if __name__ == '__main__':
                        reach_time=300.,
                        temperature_softmax=rhi_args.temperature,
                        save_path=training_save_path,
-                       sub_samples=n_samples)
+                       sub_samples=n_samples,
+                       append_sparse_error=False)
 
     if rhi_args.do_plots:
         plot_training_error(df_train=df_train, save_path=training_save_path)
@@ -459,7 +461,7 @@ if __name__ == '__main__':
 
     print('Beginning testing...')
     df_test = testing(df_test=df_test,
-                      reach_time=250.,
+                      reach_time=300.,
                       pop_monitors=pop_monitors_testing,
                       save_path=testing_save_path,
                       sub_samples=n_samples,
