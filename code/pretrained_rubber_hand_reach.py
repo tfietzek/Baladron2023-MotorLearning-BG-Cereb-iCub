@@ -13,7 +13,7 @@ if __name__ == '__main__':
     pretrained_model_path: str = 'results/RHI_j11_sigma2/bg_reach_training/bg_synapses.npz'
 
     # set up monitors
-    monitors = PopMonitor(populations=[S1, M1, StrD1, SNc, VL, SNr],
+    monitors = PopMonitor(populations=[S1, StrD1, SNr, VL, M1, SNc,],
                           sampling_rate=1.0)
 
     # compile model
@@ -45,4 +45,5 @@ if __name__ == '__main__':
                           reach_time=150.)
 
     monitors.stop()
-    monitors.animate_current_monitors()
+    monitors.animate_current_monitors(plot_types=['Bar', 'Bar','Bar','Bar','Bar','Line',],
+                                      save_name='pretrained_rubber_hand_reach')

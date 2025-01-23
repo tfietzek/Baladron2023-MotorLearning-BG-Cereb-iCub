@@ -58,12 +58,13 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
 
 
 def objective(trial: optuna.Trial, df: pd.DataFrame,
+              data_set: str = "RHI_j11_sigma2",
               weight_theta_error: float = 0.1,
               weight_sparseness_error: float = 100.) -> float:
 
     """Objective function for Optuna optimization."""
     # Create save path for this trial
-    save_path = f'results/optuna_trials/trial_{trial.number}/'
+    save_path = f'results/{data_set}/optuna_trials/trial_{trial.number}/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -110,7 +111,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
             reach_time=300.0,
             pop_monitors=None,
             shuffle=False,
-            temperature_softmax=0.05,  # Might be a hyperparameter
+            temperature_softmax=0.2,  # Might be a hyperparameter
             append_sparse_error=True,
         )
 
@@ -154,7 +155,7 @@ def run_optimization(df: pd.DataFrame,
 
     # Create objective function with only required arguments
     from functools import partial
-    objective_partial = partial(objective, df=df)
+    objective_partial = partial(objective, df=df, data_set=data_set)
 
     # Run optimization sequentially
     study.optimize(

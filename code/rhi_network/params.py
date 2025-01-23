@@ -30,8 +30,8 @@ parameters = {
     'w_fb_m1': 0.5,
 
     # laterals
-    'w_strD1_strD1': 0.5,
-    'w_snr_snr': 0.25,
+    'w_strD1_strD1': 0.3,
+    'w_snr_snr': 0.5,
     'w_thalamus_thalamus': 0.25,
     'w_m1_m1': 0.3,
 
