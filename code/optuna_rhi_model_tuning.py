@@ -107,6 +107,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
         df_test = testing(
             df_test=df_test,
             save_path=save_path,
+            reach_time=300.0,
             pop_monitors=None,
             shuffle=False,
             temperature_softmax=0.05,  # Might be a hyperparameter
