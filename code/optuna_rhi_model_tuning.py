@@ -106,11 +106,13 @@ def objective(trial: optuna.Trial, df: pd.DataFrame) -> float:
             save_path=save_path,
             pop_monitors=None,
             shuffle=False,
-            temperature_softmax=0.05  # Might be a hyperparameter
+            temperature_softmax=0.05,  # Might be a hyperparameter
+            append_sparse_error=True,
         )
 
         # Calculate error metric (mean squared error between predicted and true theta)
         mse = np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
+        mse += 1000 * np.mean((df_test['sparse_error']) ** 2)  # asure that there is really activity
 
         # Save trial results
         trial_results = {

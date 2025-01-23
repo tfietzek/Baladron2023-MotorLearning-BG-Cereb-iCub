@@ -143,7 +143,8 @@ def testing(df_test: pd.DataFrame,
             sub_samples: Optional[int] = None,
             normalize_s1_inputs: bool = True,
             load_model_path: Optional[str] = None,
-            shuffle: bool = True, ):
+            shuffle: bool = True,
+            append_sparse_error: bool = True, ):
     # shuffle data
     if shuffle:
         df_test = df_test.sample(frac=1).reset_index(drop=True)
@@ -173,6 +174,15 @@ def testing(df_test: pd.DataFrame,
     df_test['bg_theta_output'] = angles_output
     df_test['bg_cpg_output'] = cpgs_output
     df_test['bg_m1_output'] = m1_rates
+
+    if append_sparse_error:
+        df_test['sparse_error'] = create_one_hot_encoded_column(df_test,
+                                                                column_name='theta',
+                                                                new_column_name='m1_input',
+                                                                inplace=True,
+                                                                scaling=0.5)
+
+        df_test['sparse_error'] = df_test['sparse_error'] - df_test['bg_m1_output']
 
     if sub_samples is not None and pop_monitors is not None:
         pop_monitors.animate_current_monitors(
