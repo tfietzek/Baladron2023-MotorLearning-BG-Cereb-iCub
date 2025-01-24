@@ -144,7 +144,7 @@ def testing(df_test: pd.DataFrame,
             normalize_s1_inputs: bool = True,
             load_model_path: Optional[str] = None,
             shuffle: bool = True,
-            append_sparse_error: bool = False, ):
+            append_sparse_goal: bool = False, ):
 
     # shuffle data
     if shuffle:
@@ -176,14 +176,12 @@ def testing(df_test: pd.DataFrame,
     df_test['bg_cpg_output'] = cpgs_output
     df_test['bg_m1_output'] = m1_rates
 
-    if append_sparse_error:
+    if append_sparse_goal:
         df_test = create_one_hot_encoded_column(df_test,
                                                 column_name='theta',
-                                                new_column_name='sparse_error',
+                                                new_column_name='sparse_goal',
                                                 inplace=True,
                                                 scaling=0.5)
-
-        df_test['sparse_error'] = np.abs(df_test['sparse_error'] - df_test['bg_m1_output'])
 
     if sub_samples is not None and pop_monitors is not None:
         pop_monitors.animate_current_monitors(
@@ -444,7 +442,7 @@ if __name__ == '__main__':
                        temperature_softmax=rhi_args.temperature,
                        save_path=training_save_path,
                        sub_samples=n_samples,
-                       append_sparse_error=False)
+                       append_sparse_goal=False)
 
     if rhi_args.do_plots:
         plot_training_error(df_train=df_train, save_path=training_save_path)

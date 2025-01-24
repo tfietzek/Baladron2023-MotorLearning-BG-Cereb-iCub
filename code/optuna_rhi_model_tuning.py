@@ -45,35 +45,91 @@ def update_model_params(
 def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
     """Define the bounds for each hyperparameter."""
     return {
-        'learn_tau': (500.0, 5000.0),
+        'learn_tau': (100.0, 5000.0),
         'w_lat_strD1': (0.05, 1.0),
         'w_lat_snr': (0.05, 1.0),
         'w_lat_m1': (0.05, 1.0),
         'w_lat_vl': (0.05, 1.0),
         'w_fb_m1': (0.2, 1.5),
-        'pre_threshold': (0.0, 0.5),
-        'post_threshold': (0.0, 0.5),
-        'rpe_threshold': (0.0, 0.5)
+        'pre_threshold': (0.0, 0.7),
+        'post_threshold': (0.0, 0.7),
+        'rpe_threshold': (0.0, 0.5),
+        'temperature_softmax': (0.05, 1.0)  # Added temperature as hyperparameter
     }
+
+
+def calculate_m1_activity_error(df_test: pd.DataFrame, min_activity_threshold: float = 0.3) -> float:
+    """Calculate error based on maximum M1 activity levels per theta.
+    Penalizes if the maximum average activity for a given theta is below threshold."""
+    error = 0.0
+
+    # Group by theta
+    theta_groups = df_test.groupby('theta')['bg_m1_output'].agg(list)
+
+    for theta, m1_outputs in theta_groups.items():
+        # Convert list of lists to numpy array
+        m1_activities = np.array(m1_outputs)
+
+        # Calculate mean activity pattern across trials
+        mean_activity_pattern = np.mean(m1_activities, axis=0)
+
+        # Get maximum activity across neurons
+        max_activity = np.max(mean_activity_pattern)
+
+        # Penalize if maximum activity is below threshold
+        if max_activity < min_activity_threshold:
+            error += (min_activity_threshold - max_activity) ** 2
+
+    return error
+
+
+def calculate_sparseness_error(df_test: pd.DataFrame) -> float:
+    """Calculate similarity between M1 activity and sparse goal using Jensen-Shannon divergence."""
+    error = 0.0
+
+    # Group by theta
+    theta_groups = df_test.groupby('theta')
+
+    for theta, group in theta_groups:
+        # Get average M1 activity pattern for this theta
+        m1_activities = np.array(group['bg_m1_output'].tolist())
+        mean_m1_pattern = np.mean(m1_activities, axis=0)
+
+        # Normalize to create probability distribution
+        m1_dist = mean_m1_pattern / np.sum(mean_m1_pattern)
+
+        # Get sparse goal for this theta
+        sparse_goal = group['sparse_goal'].iloc[0]
+        sparse_dist = sparse_goal / np.sum(sparse_goal)
+
+        # Calculate Jensen-Shannon divergence
+        m = 0.5 * (m1_dist + sparse_dist)
+        js_divergence = 0.5 * (
+                np.sum(m1_dist * np.log(m1_dist / m + 1e-10)) +
+                np.sum(sparse_dist * np.log(sparse_dist / m + 1e-10))
+        )
+
+        error += js_divergence
+
+    # JS divergence is already bounded 0-1 per theta, so max return is 1.0
+    return error / len(theta_groups)
 
 
 def objective(trial: optuna.Trial, df: pd.DataFrame,
               data_set: str = "RHI_j11_sigma2",
-              weight_theta_error: float = 0.1,
-              weight_sparseness_error: float = 100.) -> float:
-
-    """Objective function for Optuna optimization."""
-    # Create save path for this trial
+              weight_theta_error: float = 0.01,  # Dividing by ~100 to bring theta errors to 0.01-0.25 range
+              weight_activity_error: float = 1.0,  # Brings activity errors (up to 33*0.3² = 2.97) to ~1.-3. range
+              weight_sparseness_error: float = 2.0,  # Typical range: 0.2-0.6 for common cases, up to 2.0 max
+              min_activity_threshold: float = 0.3) -> float:
+    """Modified objective function incorporating new error terms."""
     save_path = f'results/{data_set}/optuna_trials/trial_{trial.number}/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
     df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
-
-    # Get parameter bounds
     bounds = define_parameter_bounds()
 
-    # Sample parameters within bounds
+    # Sample parameters including temperature
     params = {
         'learn_tau': trial.suggest_float('learn_tau', *bounds['learn_tau']),
         'w_lat_strD1': trial.suggest_float('w_lat_strD1', *bounds['w_lat_strD1']),
@@ -83,17 +139,16 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
         'w_fb_m1': trial.suggest_float('w_fb_m1', *bounds['w_fb_m1']),
         'pre_threshold': trial.suggest_float('pre_threshold', *bounds['pre_threshold']),
         'post_threshold': trial.suggest_float('post_threshold', *bounds['post_threshold']),
-        'rpe_threshold': trial.suggest_float('rpe_threshold', *bounds['rpe_threshold'])
+        'rpe_threshold': trial.suggest_float('rpe_threshold', *bounds['rpe_threshold']),
+        'temperature_softmax': trial.suggest_float('temperature_softmax', *bounds['temperature_softmax'])
     }
 
     try:
-        # Reset S1_StrD1 weights before updating parameters
+        # Reset weights and update parameters
         S1_StrD1.w = 0.0
+        update_model_params(**{k: v for k, v in params.items() if k != 'temperature_softmax'})
 
-        # Update model parameters
-        update_model_params(**params)
-
-        # Train the model
+        # Training
         training(
             df_train=df_train,
             save_path=save_path,
@@ -101,40 +156,50 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
             pop_monitors=None,
             con_monitors=None,
             shuffle=False,
-            m1_scaling=1.0,  # Might be a hyperparameter
+            m1_scaling=1.0,
         )
 
-        # Test the model
+        # Testing with new temperature parameter
         df_test = testing(
             df_test=df_test,
             save_path=save_path,
             reach_time=300.0,
             pop_monitors=None,
             shuffle=False,
-            temperature_softmax=0.2,  # Might be a hyperparameter
-            append_sparse_error=True,
+            temperature_softmax=params['temperature_softmax'],
+            append_sparse_goal=True,
         )
 
-        # Calculate error metric (mean squared error between predicted and true theta)
-        mse = weight_theta_error * np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
-        mse += weight_sparseness_error * np.sum(df_test['sparse_error'].mean())  # asure that there is really activity that is sparse
+        # Calculate different error components
+        theta_error = weight_theta_error * np.mean((df_test['theta'] - df_test['bg_theta_output']) ** 2)
+        activity_error = weight_activity_error * calculate_m1_activity_error(df_test, min_activity_threshold)
+        sparseness_error = weight_sparseness_error * calculate_sparseness_error(df_test)
 
-        # Save trial results
+        total_error = theta_error + activity_error + sparseness_error
+
+        # Save trial results with raw and weighted errors
         trial_results = {
             'trial_number': trial.number,
-            'mse': mse,
+            'total_error': total_error,
+            'theta_error_raw': theta_error / weight_theta_error,
+            'theta_error_weighted': theta_error,
+            'activity_error_raw': activity_error / weight_activity_error,
+            'activity_error_weighted': activity_error,
+            'sparseness_error_raw': sparseness_error / weight_sparseness_error,
+            'sparseness_error_weighted': sparseness_error,
             **params
         }
+
         pd.DataFrame([trial_results]).to_csv(
             os.path.join(save_path, 'trial_results.csv'),
             index=False
         )
 
-        return mse
+        return total_error
 
     except Exception as e:
         print(f"Error in trial {trial.number}: {str(e)}")
-        return float('inf')  # Return infinity for failed trials
+        return float('inf')
 
 
 def run_optimization(df: pd.DataFrame,

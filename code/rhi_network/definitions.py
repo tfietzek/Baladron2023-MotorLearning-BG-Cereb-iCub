@@ -124,7 +124,7 @@ PostCovarianceNoThreshold = ann.Synapse(
 
 DAPrediction = ann.Synapse(
     parameters="""
-        tau = 1000.0 : projection
+        tau = 2000.0 : projection
         threshold = 'regularization_rpe' : projection
         baseline = 'baseline_dopa': projection
     """,

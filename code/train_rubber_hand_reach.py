@@ -20,15 +20,16 @@ def simulate_reaching(
     ann.simulate(wait_time)
 
     # simulate reaching process
-    S1.baseline = s1_inputs
     if training:
         # build up baseline activities
         M1.baseline = m1_inputs
-        ann.simulate(50.)
+        ann.simulate(30.)
         # reward
+        S1.baseline = s1_inputs
         SNc.firing = 1
         ann.simulate(reach_time)
     else:
+        S1.baseline = s1_inputs
         ann.simulate(reach_time)
 
     # Readout

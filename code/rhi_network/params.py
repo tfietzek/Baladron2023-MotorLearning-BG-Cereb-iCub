@@ -15,7 +15,7 @@ parameters = {
 
     # time constants
     'cov_tau': 1500.0,
-    'cov_alpha': 2000.0,
+    'cov_alpha': 4000.0,
 
     # SNc
     'baseline_dopa': 0.2,
