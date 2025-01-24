@@ -55,10 +55,13 @@ def simulate_cpg(m1_rates: np.ndarray,
     decision = softmax(m1_rates, temperature)
     Brainstem.baseline = decision
 
-    ann.step()
-    ann.reset(monitors=False, populations=True)
+    ann.step()  # set baseline in Brainstem
+    ann.step()  # propagate decision to CPG
 
-    return CPG_output.r, np.dot(decision, encodings_m1)
+    cpg_output = CPG_output.r
+
+    ann.reset(monitors=False, populations=True)
+    return cpg_output, np.dot(decision, encodings_m1)
 
 
 def train_over_inputs(
