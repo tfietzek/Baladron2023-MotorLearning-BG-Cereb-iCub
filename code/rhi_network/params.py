@@ -14,7 +14,7 @@ parameters = {
     'baseline_thalamus': 1.0,
 
     # time constants
-    'cov_tau': 1500.0,
+    'cov_tau': 2000.0,
     'cov_alpha': 4000.0,
 
     # SNc
@@ -27,7 +27,7 @@ parameters = {
     'w_thalamus': 1.0,
     'w_m1': 1.0,
     'w_cpg': 1.0,
-    'w_fb_m1': 0.5,
+    'w_fb_m1': 0.25,
 
     # laterals
     'w_strD1_strD1': 0.3,

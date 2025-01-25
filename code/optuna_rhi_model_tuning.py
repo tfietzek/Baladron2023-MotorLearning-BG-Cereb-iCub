@@ -50,11 +50,11 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
         'w_lat_snr': (0.05, 1.0),
         'w_lat_m1': (0.05, 1.0),
         'w_lat_vl': (0.05, 1.0),
-        'w_fb_m1': (0.2, 1.5),
+        'w_fb_m1': (0.1, 1.5),
         'pre_threshold': (0.0, 0.7),
         'post_threshold': (0.0, 0.7),
         'rpe_threshold': (0.0, 0.5),
-        'temperature_softmax': (0.05, 1.0)  # Added temperature as hyperparameter
+        'temperature_softmax': (0.05, 1.5)
     }
 
 
@@ -103,11 +103,15 @@ def calculate_sparseness_error(df_test: pd.DataFrame) -> float:
         sparse_dist = sparse_goal / np.sum(sparse_goal)
 
         # Calculate Jensen-Shannon divergence
-        m = 0.5 * (m1_dist + sparse_dist)
-        js_divergence = 0.5 * (
-                np.sum(m1_dist * np.log(m1_dist / m + 1e-10)) +
-                np.sum(sparse_dist * np.log(sparse_dist / m + 1e-10))
-        )
+        # Handle zero distributions
+        if np.sum(m1_dist) < 1e-3 or np.sum(sparse_dist) < 1e-3:
+            js_divergence = 1.0  # Maximum dissimilarity
+        else:
+            m = 0.5 * (m1_dist + sparse_dist)
+            js_divergence = 0.5 * (
+                    np.sum(m1_dist * np.log(m1_dist / (m + 1e-10) + 1e-10)) +  # avoid log(0) and divide by 0
+                    np.sum(sparse_dist * np.log(sparse_dist / (m + 1e-10) + 1e-10))
+            )
 
         error += js_divergence
 
@@ -119,7 +123,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
               data_set: str = "RHI_j11_sigma2",
               weight_theta_error: float = 0.01,  # Dividing by ~100 to bring theta errors to 0.01-0.25 range
               weight_activity_error: float = 1.0,  # Brings activity errors (up to 33*0.3² = 2.97) to ~1.-3. range
-              weight_sparseness_error: float = 2.0,  # Typical range: 0.2-0.6 for common cases, up to 2.0 max
+              weight_sparseness_error: float = 1.0,  # Typical range: 0.2-0.6 for common cases, up to 1.0 max
               min_activity_threshold: float = 0.3) -> float:
     """Modified objective function incorporating new error terms."""
     save_path = f'results/{data_set}/optuna_trials/trial_{trial.number}/'
@@ -271,7 +275,7 @@ if __name__ == "__main__":
     df = merge_training_data(
         rhi_path=args.rhi_data_path,
         cpg_path=cpg_path,
-        save_name=f'{args.data_set}_training.parquet'
+        save_name=f'{args.data_set}_training_optuna.parquet'
     )
 
     # Shuffle the dataframe with a fixed seed, we don't want to do it in the hyperparameter optimization
@@ -285,3 +289,56 @@ if __name__ == "__main__":
         data_set=args.data_set,
         study_name=f"hyperparameter_optimization_{args.data_set}"
     )
+
+    # If hyperopt is finished run whole experiment
+    if study.best_trial.state == optuna.trial.TrialState.COMPLETE:
+        import matplotlib.pyplot as plt
+        from run_rubber_hand_reach import plot_training_error, plot_average_m1_firing_rates, plot_theta_errors
+        from mlp_utils import merge_test_data
+
+        # Get best parameters
+        best_params = study.best_params
+
+        # Reset weights and update parameters
+        S1_StrD1.w = 0.0
+        update_model_params(**{k: v for k, v in best_params.items() if k != 'temperature_softmax'})
+
+        training_path = f'results/{args.data_set}/optuna_best_model_training/'
+        testing_path = f'results/{args.data_set}/optuna_best_model_testing/'
+
+        training(
+            df_train=df,
+            save_path=f'results/{args.data_set}/optuna_trials/trial_{study.best_trial.number}/',
+            save_model=True,
+            pop_monitors=None,
+            con_monitors=None,
+            shuffle=True,
+            m1_scaling=1.0,
+        )
+
+        # Testing with new temperature parameter
+        df_train = testing(
+            df_test=df.copy(),
+            save_path=training_path,
+            reach_time=300.0,
+            pop_monitors=None,
+            shuffle=True,
+            temperature_softmax=best_params['temperature_softmax'],
+        )
+
+        plot_training_error(df_train=df_train, save_path=training_path)
+        plot_average_m1_firing_rates(df_train=df_train, save_path=training_path)
+
+        # test on incongruent s1 representations
+        df_test = merge_test_data(rhi_path=args.rhi_data_path, cpg_path=cpg_path, save_name=f'{args.data_set}_test_optuna.parquet')
+
+        print('Beginning testing...')
+        df_test = testing(df_test=df_test,
+                          reach_time=300.,
+                          pop_monitors=None,
+                          save_path=testing_path,
+                          sub_samples=None,
+                          temperature_softmax=best_params['temperature_softmax'],)
+
+        plot_theta_errors(df_test=df_test, save_path=testing_path, scatter_subset=100_000)
+

@@ -382,7 +382,7 @@ if __name__ == '__main__':
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.2, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.8, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_parser.add_argument('--init_m1_scale', type=float, default=1.0, )
     rhi_args = rhi_parser.parse_args()
