@@ -10,22 +10,23 @@ from sklearn.model_selection import train_test_split
 from rhi_network.reaching_model import *
 from run_rubber_hand_reach import training, testing
 from mlp_utils import merge_training_data
-from monitoring import PopMonitor, ConMonitor
 
 
 def update_model_params(
-        learn_tau: float,
-        w_lat_strD1: float,
+        learn_tau: float = 1000.0,
+        w_lat_strD1: float = 0.5,
         w_lat_snr: float = 0.2,
         w_lat_m1: float = 0.3,
         w_lat_vl: float = 0.2,
         w_fb_m1: float = 0.5,
         pre_threshold: float = 0.1,
         post_threshold: float = 0.2,
-        rpe_threshold: float = 0.1,
+        alpha_tau: float = 3000.0,
+        alpha_regularization: float = 0.6,
 ):
     # update model parameters
     S1_StrD1.tau = learn_tau
+    S1_StrD1.tau_alpha = alpha_tau
 
     # lateral weights
     StrD1_StrD1.w = w_lat_strD1
@@ -39,7 +40,7 @@ def update_model_params(
     # thresholds
     S1_StrD1.threshold_pre = pre_threshold
     S1_StrD1.threshold_post = post_threshold
-    StrD1_SNc.threshold = rpe_threshold
+    S1_StrD1.regularization_threshold = alpha_regularization
 
 
 def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
@@ -53,12 +54,12 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
         'w_fb_m1': (0.1, 1.5),
         'pre_threshold': (0.0, 0.7),
         'post_threshold': (0.0, 0.7),
-        'rpe_threshold': (0.0, 0.5),
-        'temperature_softmax': (0.05, 1.5)
+        'alpha_tau': (500.0, 5000.0),
+        'alpha_regularization': (0.1, 1.0)
     }
 
 
-def calculate_m1_activity_error(df_test: pd.DataFrame, min_activity_threshold: float = 0.3) -> float:
+def calculate_m1_activity_error(df_test: pd.DataFrame, min_activity_threshold: float = 0.4) -> float:
     """Calculate error based on maximum M1 activity levels per theta.
     Penalizes if the maximum average activity for a given theta is below threshold."""
     error = 0.0
@@ -121,16 +122,16 @@ def calculate_sparseness_error(df_test: pd.DataFrame) -> float:
 
 def objective(trial: optuna.Trial, df: pd.DataFrame,
               data_set: str = "RHI_j11_sigma2",
-              weight_theta_error: float = 0.01,  # Dividing by ~100 to bring theta errors to 0.01-0.25 range
+              weight_theta_error: float = 0.01,  # Dividing by ~100 to bring theta errors to 1.0-3.0 range
               weight_activity_error: float = 1.0,  # Brings activity errors (up to 33*0.3² = 2.97) to ~1.-3. range
-              weight_sparseness_error: float = 1.0,  # Typical range: 0.2-0.6 for common cases, up to 1.0 max
-              min_activity_threshold: float = 0.3) -> float:
+              weight_sparseness_error: float = 0.5,  # Typical range: 0.2-0.8 for common cases,
+              min_activity_threshold: float = 0.4) -> float:
     """Modified objective function incorporating new error terms."""
     save_path = f'results/{data_set}/optuna_trials/trial_{trial.number}/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
+    _, df_test = train_test_split(df, test_size=0.2, random_state=42)
     bounds = define_parameter_bounds()
 
     # Sample parameters including temperature
@@ -143,18 +144,18 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
         'w_fb_m1': trial.suggest_float('w_fb_m1', *bounds['w_fb_m1']),
         'pre_threshold': trial.suggest_float('pre_threshold', *bounds['pre_threshold']),
         'post_threshold': trial.suggest_float('post_threshold', *bounds['post_threshold']),
-        'rpe_threshold': trial.suggest_float('rpe_threshold', *bounds['rpe_threshold']),
-        'temperature_softmax': trial.suggest_float('temperature_softmax', *bounds['temperature_softmax'])
+        'alpha_tau': trial.suggest_float('alpha_tau', *bounds['alpha_tau']),
+        'alpha_regularization': trial.suggest_float('alpha_regularization', *bounds['alpha_regularization'])
     }
 
     try:
         # Reset weights and update parameters
         S1_StrD1.w = 0.0
-        update_model_params(**{k: v for k, v in params.items() if k != 'temperature_softmax'})
+        update_model_params(**params)
 
         # Training
         training(
-            df_train=df_train,
+            df_train=df,
             save_path=save_path,
             save_model=True,
             pop_monitors=None,
@@ -170,7 +171,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
             reach_time=300.0,
             pop_monitors=None,
             shuffle=False,
-            temperature_softmax=params['temperature_softmax'],
+            temperature_softmax=0.5,
             append_sparse_goal=True,
         )
 
@@ -301,7 +302,7 @@ if __name__ == "__main__":
 
         # Reset weights and update parameters
         S1_StrD1.w = 0.0
-        update_model_params(**{k: v for k, v in best_params.items() if k != 'temperature_softmax'})
+        update_model_params(**best_params)
 
         training_path = f'results/{args.data_set}/optuna_best_model_training/'
         testing_path = f'results/{args.data_set}/optuna_best_model_testing/'
@@ -323,7 +324,7 @@ if __name__ == "__main__":
             reach_time=300.0,
             pop_monitors=None,
             shuffle=True,
-            temperature_softmax=best_params['temperature_softmax'],
+            temperature_softmax=0.5,
         )
 
         plot_training_error(df_train=df_train, save_path=training_path)
@@ -338,7 +339,7 @@ if __name__ == "__main__":
                           pop_monitors=None,
                           save_path=testing_path,
                           sub_samples=None,
-                          temperature_softmax=best_params['temperature_softmax'],)
+                          temperature_softmax=0.5,)
 
-        plot_theta_errors(df_test=df_test, save_path=testing_path, scatter_subset=100_000)
+        plot_theta_errors(df_test=df_test, save_path=testing_path, scatter_subset=50_000)
 
