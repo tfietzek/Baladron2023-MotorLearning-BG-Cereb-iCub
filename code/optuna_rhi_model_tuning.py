@@ -23,10 +23,12 @@ def update_model_params(
         post_threshold: float = 0.2,
         alpha_tau: float = 3000.0,
         alpha_regularization: float = 0.6,
+        K_burst: float = 1.0,
 ):
     # update model parameters
     S1_StrD1.tau = learn_tau
     S1_StrD1.tau_alpha = alpha_tau
+    S1_StrD1.K_burst = K_burst
 
     # lateral weights
     StrD1_StrD1.w = w_lat_strD1
@@ -55,7 +57,8 @@ def define_parameter_bounds() -> Dict[str, Tuple[float, float]]:
         'pre_threshold': (0.0, 0.7),
         'post_threshold': (0.0, 0.7),
         'alpha_tau': (500.0, 5000.0),
-        'alpha_regularization': (0.1, 1.0)
+        'alpha_regularization': (0.1, 1.0),
+        'K_burst': (1.0, 2.5)
     }
 
 
@@ -145,7 +148,8 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
         'pre_threshold': trial.suggest_float('pre_threshold', *bounds['pre_threshold']),
         'post_threshold': trial.suggest_float('post_threshold', *bounds['post_threshold']),
         'alpha_tau': trial.suggest_float('alpha_tau', *bounds['alpha_tau']),
-        'alpha_regularization': trial.suggest_float('alpha_regularization', *bounds['alpha_regularization'])
+        'alpha_regularization': trial.suggest_float('alpha_regularization', *bounds['alpha_regularization']),
+        'K_burst': trial.suggest_float('K_burst', *bounds['K_burst'])
     }
 
     try:
@@ -168,7 +172,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
         df_test = testing(
             df_test=df_test,
             save_path=save_path,
-            reach_time=300.0,
+            reach_time=200.0,
             pop_monitors=None,
             shuffle=False,
             temperature_softmax=0.5,
@@ -220,7 +224,7 @@ def run_optimization(df: pd.DataFrame,
         storage=storage,
         load_if_exists=True,  # Allow resuming existing study
         direction="minimize",
-        sampler=TPESampler(seed=42)
+        sampler=TPESampler()
     )
 
     # Create objective function with only required arguments
@@ -321,7 +325,7 @@ if __name__ == "__main__":
         df_train = testing(
             df_test=df.copy(),
             save_path=training_path,
-            reach_time=300.0,
+            reach_time=200.0,
             pop_monitors=None,
             shuffle=True,
             temperature_softmax=0.5,
@@ -333,9 +337,8 @@ if __name__ == "__main__":
         # test on incongruent s1 representations
         df_test = merge_test_data(rhi_path=args.rhi_data_path, cpg_path=cpg_path, save_name=f'{args.data_set}_test_optuna.parquet')
 
-        print('Beginning testing...')
         df_test = testing(df_test=df_test,
-                          reach_time=300.,
+                          reach_time=200.,
                           pop_monitors=None,
                           save_path=testing_path,
                           sub_samples=None,

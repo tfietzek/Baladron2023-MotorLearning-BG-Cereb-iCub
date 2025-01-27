@@ -6,7 +6,11 @@ from typing import Optional, Tuple
 
 def softmax(x: np.array,
             temperature: float) -> np.ndarray:
-    return np.exp(x / temperature) / np.sum(np.exp(x / temperature))
+    norm = np.sum(np.exp(x / temperature))
+    if norm:
+        return np.exp(x / temperature) / norm
+    else:
+        return np.zeros(x.shape)
 
 
 def simulate_reaching(
@@ -15,6 +19,7 @@ def simulate_reaching(
         training: bool,
         wait_time: float = 50.,
         reach_time: float = 350.,
+        m1_monitor: Optional[ann.Monitor] = None,
 ):
     # build up baseline activities
     ann.simulate(wait_time)
@@ -33,7 +38,11 @@ def simulate_reaching(
         ann.simulate(reach_time)
 
     # Readout
-    m1_rates = M1.r
+    if m1_monitor is not None:
+        rates = m1_monitor.get(variables='r', keep=False)
+        m1_rates = np.mean(rates[-50:], axis=0)
+    else:
+        m1_rates = M1.r
 
     # reset to start conditions
     ann.reset(monitors=False, populations=True)
@@ -42,17 +51,19 @@ def simulate_reaching(
 
 
 def simulate_cpg(m1_rates: np.ndarray,
-                 temperature: float = 1.0,
-                 encodings_m1: np.ndarray = parameters["encodings_m1"]
+                 temperature: float,
+                 encodings_m1: np.ndarray = parameters["encodings_m1"],
+                 regularization: float = 0.0,
                  ) -> Tuple[np.ndarray, float]:
     """
     Simulate the CPG output and the angle output
     :param m1_rates: Firing rates of M1
     :param temperature: Temperature of the softmax
     :param encodings_m1: Encodings of M1 (Movement based on starting angles)
+    :param regularization: Regularization factor
     :return: CPG output and presumed starting angle of movement
     """
-    decision = softmax(m1_rates, temperature)
+    decision = softmax(np.abs(m1_rates - regularization), temperature)
     Brainstem.baseline = decision
 
     ann.step()  # set baseline in Brainstem
@@ -96,15 +107,21 @@ def train_over_inputs(
 
 def predict_over_inputs(
         s1_inputs: np.ndarray | list,
+        temperature: float,
         wait_time: float = 50.,
         reach_time: float = 350.,
-        temperature: float = 0.1
+        mean_m1: bool = True,
 ):
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
 
     if s1_inputs.ndim == 1:
         s1_inputs = s1_inputs.reshape(1, -1)
+
+    if mean_m1:
+        m1_monitor = ann.Monitor(M1, 'r',)
+    else:
+        m1_monitor = None
 
     # disable learning
     ann.disable_learning()
@@ -118,9 +135,14 @@ def predict_over_inputs(
                                     m1_inputs=None,
                                     training=False,
                                     wait_time=wait_time,
-                                    reach_time=reach_time)
+                                    reach_time=reach_time,
+                                    m1_monitor=m1_monitor)
 
         cpg_output, angle_output = simulate_cpg(m1_rates=m1_rate, temperature=temperature)
         m1_rates.append(m1_rate), cpgs.append(cpg_output), angles.append(angle_output)
+
+
+    if m1_monitor is not None:
+        m1_monitor.stop()
 
     return m1_rates, cpgs, angles

@@ -134,10 +134,10 @@ def training(df_train: pd.DataFrame,
 
 
 def testing(df_test: pd.DataFrame,
+            temperature_softmax: float,
             s1_column: str = 'r_output',
             wait_time: float = 50.,
             reach_time: float = 150.,
-            temperature_softmax: float = 0.1,
             save_path: Optional[str] = None,
             pop_monitors: Optional[PopMonitor] = None,
             sub_samples: Optional[int] = None,
@@ -382,7 +382,7 @@ if __name__ == '__main__':
                             help="Monitor the testing process?")
     rhi_parser.add_argument('--clean_compile', type=bool, default=True, )
     rhi_parser.add_argument('--debug', type=bool, default=False, )
-    rhi_parser.add_argument('--temperature', type=float, default=0.8, )
+    rhi_parser.add_argument('--temperature', type=float, default=0.5, )
     rhi_parser.add_argument('--do_plots', type=bool, default=True, )
     rhi_parser.add_argument('--init_m1_scale', type=float, default=1.0, )
     rhi_args = rhi_parser.parse_args()
@@ -438,7 +438,7 @@ if __name__ == '__main__':
 
     # test training performance with congruent s1 representations
     df_train = testing(df_test=df_train,
-                       reach_time=300.,
+                       reach_time=200.,
                        temperature_softmax=rhi_args.temperature,
                        save_path=training_save_path,
                        sub_samples=n_samples,
@@ -459,7 +459,7 @@ if __name__ == '__main__':
 
     print('Beginning testing...')
     df_test = testing(df_test=df_test,
-                      reach_time=300.,
+                      reach_time=200.,
                       pop_monitors=pop_monitors_testing,
                       save_path=testing_save_path,
                       sub_samples=n_samples,
