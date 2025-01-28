@@ -14,12 +14,16 @@ parameters = {
     'baseline_thalamus': 1.0,
 
     # time constants
-    'cov_tau': 2000.0,
-    'cov_alpha': 4000.0,
+    'cov_tau': 1500.0,
+    'cov_alpha': 3000.0,
+
+    # M1 decision
+    'temperature_softmax': 0.025,
 
     # SNc
     'baseline_dopa': 0.2,
     'regularization_rpe': 0.2,
+    'k_burst': 2.0,  # modulatory DA burst when SNc firing
 
     # connectivity strengths
     'init_w_striatum': 0.0,
@@ -38,11 +42,11 @@ parameters = {
     # s1 to striatum parameters
     'reg_threshold_s1': 0.1,
     'reg_threshold_d1': 0.15,
-    'alpha_regularization': 0.9,
+    'alpha_regularization': 0.75,
 
     # brainstem parameters
     'encodings_m1': np.arange(16, 81, 2, dtype=np.float16),
 
     # inverse kinematics parameters
-    'cpg_weights_file': 'results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz'
+    'cpg_weights_file': 'results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
 }
