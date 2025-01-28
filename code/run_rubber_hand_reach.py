@@ -468,6 +468,7 @@ if __name__ == '__main__':
     if rhi_args.debug:
         print(df_test.columns)
         print(np.amax(np.array(S1_StrD1.w), axis=1))
+        print(S1_StrD1.alpha)
 
     if rhi_args.do_plots and not rhi_args.debug:
         plot_theta_errors(df_test=df_test, save_path=testing_save_path, scatter_subset=10_000)

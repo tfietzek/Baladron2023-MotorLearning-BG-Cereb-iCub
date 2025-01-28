@@ -155,6 +155,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
     try:
         # Reset weights and update parameters
         S1_StrD1.w = 0.0
+        S1_StrD1.alpha = 0.0
         update_model_params(**params)
 
         # Training
@@ -306,6 +307,7 @@ if __name__ == "__main__":
 
         # Reset weights and update parameters
         S1_StrD1.w = 0.0
+        S1_StrD1.alpha = 0.0
         update_model_params(**best_params)
 
         training_path = f'results/{args.data_set}/optuna_best_model_training/'
