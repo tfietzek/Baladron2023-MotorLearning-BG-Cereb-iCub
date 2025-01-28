@@ -6,9 +6,12 @@ from typing import Optional, Tuple
 
 def softmax(x: np.array,
             temperature: float) -> np.ndarray:
-    norm = np.sum(np.exp(x / temperature))
+
+    x_exp = np.exp(x / temperature)
+    norm = np.sum(x_exp)
+
     if norm:
-        return np.exp(x / temperature) / norm
+        return x_exp / norm
     else:
         return np.zeros(x.shape)
 

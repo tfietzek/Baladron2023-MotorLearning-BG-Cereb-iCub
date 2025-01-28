@@ -127,7 +127,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
               data_set: str = "RHI_j11_sigma2",
               weight_theta_error: float = 0.01,  # Dividing by ~100 to bring theta errors to 1.0-3.0 range
               weight_activity_error: float = 1.0,  # Brings activity errors (up to 33*0.3² = 2.97) to ~1.-3. range
-              weight_sparseness_error: float = 0.5,  # Typical range: 0.2-0.8 for common cases,
+              weight_sparseness_error: float = 0.05,  # Typical range: 0.2-0.8 for common cases, should not be a big criteria
               min_activity_threshold: float = 0.4) -> float:
     """Modified objective function incorporating new error terms."""
     save_path = f'results/{data_set}/optuna_trials/trial_{trial.number}/'
@@ -175,7 +175,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
             reach_time=200.0,
             pop_monitors=None,
             shuffle=False,
-            temperature_softmax=0.5,
+            temperature_softmax=parameters['temperature_softmax'],
             append_sparse_goal=True,
         )
 
@@ -328,7 +328,7 @@ if __name__ == "__main__":
             reach_time=200.0,
             pop_monitors=None,
             shuffle=True,
-            temperature_softmax=0.5,
+            temperature_softmax=parameters['temperature_softmax'],
         )
 
         plot_training_error(df_train=df_train, save_path=training_path)
@@ -342,7 +342,7 @@ if __name__ == "__main__":
                           pop_monitors=None,
                           save_path=testing_path,
                           sub_samples=None,
-                          temperature_softmax=0.5,)
+                          temperature_softmax=parameters['temperature_softmax'],)
 
         plot_theta_errors(df_test=df_test, save_path=testing_path, scatter_subset=50_000)
 
