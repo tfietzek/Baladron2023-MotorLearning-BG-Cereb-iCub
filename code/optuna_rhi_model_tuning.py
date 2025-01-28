@@ -315,7 +315,7 @@ if __name__ == "__main__":
 
         training(
             df_train=df,
-            save_path=f'results/{args.data_set}/optuna_trials/trial_{study.best_trial.number}/',
+            save_path=training_path,
             save_model=True,
             pop_monitors=None,
             con_monitors=None,
