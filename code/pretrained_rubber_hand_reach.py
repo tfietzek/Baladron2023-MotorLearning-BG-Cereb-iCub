@@ -12,10 +12,11 @@ from run_rubber_hand_reach import normalize_list_column
 if __name__ == '__main__':
     theta_vis: float = 50.0
     theta_proprio: float = 30.0
-    n_samples: Optional[int] = 10
-    make_animations: bool = True
+    n_samples: Optional[int] = 2
+    make_animations: bool = False
 
-    pretrained_model_path: str = 'results/RHI_j11_sigma2/optuna_best_model_training/bg_synapses.npz'
+    pretrained_model_path: str = 'results/RHI_j11_sigma2/bg_reach_training/bg_synapses.npz'
+    rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz'
 
     # set up monitors
     monitors = PopMonitor(populations=[S1, StrD1, SNr, VL, M1, SNc, ],
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     # training data
     if theta_vis == theta_proprio:
         # load congruent data
-        df = merge_training_data(rhi_path='data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+        df = merge_training_data(rhi_path=rhi_path,
                                  cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
                                  save_name='/RHI_j11_sigma2_training.parquet')
         # normalise s1 inputs
@@ -45,7 +46,7 @@ if __name__ == '__main__':
         # get inputs to specific angle
         s1_inputs = df[df['theta'] == theta_proprio]['r_output'].tolist()
     else:
-        df = merge_test_data(rhi_path='data_out/data_RHI_jitter_1_1_sigma_prop_2.npz',
+        df = merge_test_data(rhi_path=rhi_path,
                              cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
                              save_name='/RHI_j11_sigma2_test.parquet')
 
@@ -77,7 +78,7 @@ if __name__ == '__main__':
 
         if make_animations:
             # save animation
-            monitors.animate_current_monitors(save_name=save_folder + 'animation.gif',
+            monitors.animate_current_monitors(save_name=save_folder + 'animation.mp4',
                                               plot_types=monitors_plot_types,
                                               fig_size=(20, 20),
                                               t_init=0,
