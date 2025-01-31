@@ -203,15 +203,19 @@ def testing(df_test: pd.DataFrame,
 
 
 def plot_theta_errors(df_test: pd.DataFrame,
+                      proprio_theta_column: str = 'theta',
+                      vis_theta_column: str = 'vision_theta',
+                      bg_theta_column: str = 'bg_theta_output',
                       save_path: Optional[str] = None,
                       scatter_subset: Optional[int] = None, ):
+
     import matplotlib.pyplot as plt
 
     results_df = pd.DataFrame({
-        'theta': df_test['theta'],
-        'theta_pred': df_test['bg_theta_output'],
-        'theta_diff_true': df_test['theta'] - df_test['vision_theta'],
-        'theta_diff_pred': df_test['bg_theta_output'] - df_test['vision_theta']
+        'theta': df_test[proprio_theta_column],
+        'theta_pred': df_test[bg_theta_column],
+        'theta_diff_true': df_test[proprio_theta_column] - df_test[vis_theta_column],
+        'theta_diff_pred': df_test[bg_theta_column] - df_test[vis_theta_column]
     })
 
     error_stats = results_df.groupby('theta_diff_true')['theta_diff_pred'].agg(['mean', 'std']).reset_index()
