@@ -83,6 +83,7 @@ def train_over_inputs(
         m1_inputs: np.ndarray | list,
         wait_time: float = 50.,
         reach_time: float = 350.,
+        track_weights: bool = False
 ):
     if isinstance(s1_inputs, list):
         s1_inputs = np.array(s1_inputs)
@@ -100,12 +101,26 @@ def train_over_inputs(
     # enable learning
     ann.enable_learning()
 
+    if track_weights:
+        weights = []
+        alphas = []
+
     for i in range(s1_inputs.shape[0]):
         simulate_reaching(s1_inputs=s1_inputs[i],
                           m1_inputs=m1_inputs[i],
                           training=True,
                           wait_time=wait_time,
                           reach_time=reach_time)
+
+        if track_weights:
+            w_S1_StrD1 = np.array(S1_StrD1.w)
+            al_S1_StrD1 = np.array(S1_StrD1.alpha)
+
+            weights.append(np.sum(w_S1_StrD1, axis=1))
+            alphas.append(np.sum(al_S1_StrD1, axis=1))
+
+    if track_weights:
+        return weights, alphas
 
 
 def predict_over_inputs(

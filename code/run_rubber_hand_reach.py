@@ -70,7 +70,8 @@ def training(df_train: pd.DataFrame,
              sub_samples: Optional[int] = None,
              normalize_s1_inputs: bool = True,
              save_model: bool = True,
-             shuffle: bool = True, ):
+             shuffle: bool = True,
+             weight_tracking: bool = False):
     # create one hot encoded column for movement input
     df_train = create_one_hot_encoded_column(df_train,
                                              column_name=m1_column,
@@ -94,10 +95,18 @@ def training(df_train: pd.DataFrame,
     if pop_monitors is not None:
         pop_monitors.start()
 
-    train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
-                      m1_inputs=df_train['m1_input'].tolist(),
-                      wait_time=wait_time,
-                      reach_time=reach_time)
+    if weight_tracking:
+        w_Str, alpha_Str = train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
+                                             m1_inputs=df_train['m1_input'].tolist(),
+                                             wait_time=wait_time,
+                                             reach_time=reach_time,
+                                             track_weights=weight_tracking)
+    else:
+        train_over_inputs(s1_inputs=df_train[s1_column].tolist(),
+                          m1_inputs=df_train['m1_input'].tolist(),
+                          wait_time=wait_time,
+                          reach_time=reach_time,
+                          track_weights=weight_tracking)
 
     if pop_monitors is not None:
         pop_monitors.stop()
@@ -130,7 +139,10 @@ def training(df_train: pd.DataFrame,
         if save_model:
             ann.save(save_path + 'bg_synapses.npz')
 
-    return df_train
+    if weight_tracking:
+        return df_train, np.array(w_Str), np.array(alpha_Str)
+    else:
+        return df_train
 
 
 def testing(df_test: pd.DataFrame,
@@ -145,7 +157,6 @@ def testing(df_test: pd.DataFrame,
             load_model_path: Optional[str] = None,
             shuffle: bool = True,
             append_sparse_goal: bool = False, ):
-
     # shuffle data
     if shuffle:
         df_test = df_test.sample(frac=1).reset_index(drop=True)
@@ -208,7 +219,6 @@ def plot_theta_errors(df_test: pd.DataFrame,
                       bg_theta_column: str = 'bg_theta_output',
                       save_path: Optional[str] = None,
                       scatter_subset: Optional[int] = None, ):
-
     import matplotlib.pyplot as plt
 
     results_df = pd.DataFrame({
@@ -374,6 +384,53 @@ def plot_average_m1_firing_rates(df_train: pd.DataFrame,
         plt.show()
 
 
+def plot_weight_evolution(weights: np.ndarray,
+                          alphas: np.ndarray,
+                          figsize: Tuple[int, int] = (15, 5),
+                          alpha_value_plt: float = 0.3,
+                          save_path: Optional[str] = None, ):
+    import matplotlib.pyplot as plt
+
+    # Input validation
+    if weights.shape != alphas.shape:
+        raise ValueError("Arrays must have the same shape")
+
+    # Create figure and subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=figsize)
+    time_steps = np.arange(weights.shape[0])
+
+    for i in range(weights.shape[1]):
+        ax1.plot(time_steps, weights[:, i], alpha=alpha_value_plt, color='blue', linestyle='--')
+    # Plot mean of first array
+    mean = np.mean(weights, axis=1)
+    ax1.plot(time_steps, mean, color='red', linewidth=2, label='Mean')
+
+    for i in range(weights.shape[1]):
+        ax2.plot(time_steps, alphas[:, i], alpha=alpha_value_plt, color='green', linestyle='--')
+    mean = np.mean(alphas, axis=1)
+    ax2.plot(time_steps, mean, color='red', linewidth=2, label='Mean')
+
+    ax1.set_title('Weights'), ax2.set_title('Alpha')
+    ax1.set_xlabel('t'), ax2.set_xlabel('t')
+    ax1.set_ylabel('$\\Sigma w_{str, i}$'), ax2.set_ylabel('$\\Sigma w_{str, i}$')
+    ax1.legend()
+    ax2.legend()
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+
+    if save_path is not None:
+        if save_path[-1] != '/':
+            save_path += '/'
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        plt.savefig(save_path + 'weight_evolution.pdf')
+        plt.close(fig)
+    else:
+        plt.show()
+
+
 if __name__ == '__main__':
     rhi_parser = argparse.ArgumentParser()
     rhi_parser.add_argument('--data_set', type=str, default="RHI_j11_sigma2",
@@ -433,12 +490,13 @@ if __name__ == '__main__':
         con_monitors_training = None
 
     print('Beginning training...')
-    training(df_train=df_train,
-             pop_monitors=pop_monitors_training,
-             con_monitors=con_monitors_training,
-             m1_scaling=rhi_args.init_m1_scale,
-             save_path=training_save_path,
-             sub_samples=n_samples)
+    _, w_Str, alpha_Str = training(df_train=df_train,
+                                   pop_monitors=pop_monitors_training,
+                                   con_monitors=con_monitors_training,
+                                   m1_scaling=rhi_args.init_m1_scale,
+                                   save_path=training_save_path,
+                                   sub_samples=n_samples,
+                                   weight_tracking=True)
 
     # test training performance with congruent s1 representations
     df_train = testing(df_test=df_train,
@@ -449,6 +507,7 @@ if __name__ == '__main__':
                        append_sparse_goal=False)
 
     if rhi_args.do_plots:
+        plot_weight_evolution(weights=w_Str, alphas=alpha_Str, save_path=training_save_path)
         plot_training_error(df_train=df_train, save_path=training_save_path)
         plot_average_m1_firing_rates(df_train=df_train, save_path=training_save_path)
 

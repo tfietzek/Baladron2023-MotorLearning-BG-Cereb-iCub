@@ -167,6 +167,7 @@ def objective(trial: optuna.Trial, df: pd.DataFrame,
             con_monitors=None,
             shuffle=False,
             m1_scaling=1.0,
+            weight_tracking=False,
         )
 
         # Testing with new temperature parameter
@@ -299,7 +300,10 @@ if __name__ == "__main__":
     # If hyperopt is finished run whole experiment
     if study.best_trial.state == optuna.trial.TrialState.COMPLETE:
         import matplotlib.pyplot as plt
-        from run_rubber_hand_reach import plot_training_error, plot_average_m1_firing_rates, plot_theta_errors
+        from run_rubber_hand_reach import (plot_training_error,
+                                           plot_average_m1_firing_rates,
+                                           plot_theta_errors,
+                                           plot_weight_evolution)
         from mlp_utils import merge_test_data
 
         # Get best parameters
@@ -313,7 +317,7 @@ if __name__ == "__main__":
         training_path = f'results/{args.data_set}/optuna_best_model_training/'
         testing_path = f'results/{args.data_set}/optuna_best_model_testing/'
 
-        training(
+        _, w_str, alpha_str = training(
             df_train=df,
             save_path=training_path,
             save_model=True,
@@ -321,6 +325,7 @@ if __name__ == "__main__":
             con_monitors=None,
             shuffle=True,
             m1_scaling=1.0,
+            weight_tracking=True
         )
 
         # Testing with new temperature parameter
@@ -333,6 +338,7 @@ if __name__ == "__main__":
             temperature_softmax=parameters['temperature_softmax'],
         )
 
+        plot_weight_evolution(weights=w_str, alphas=alpha_str, save_path=training_path)
         plot_training_error(df_train=df_train, save_path=training_path)
         plot_average_m1_firing_rates(df_train=df_train, save_path=training_path)
 
