@@ -10,13 +10,16 @@ from run_rubber_hand_reach import normalize_list_column
 
 
 if __name__ == '__main__':
-    theta_vis: float = 50.0
-    theta_proprio: float = 30.0
-    n_samples: Optional[int] = 2
+    # parameters
+    ids = {
+        'training': (1, 2),
+        'test': (1, 4),
+    }
+
+    theta_proprio: float = 0.0
     make_animations: bool = False
 
     pretrained_model_path: str = 'results/RHI_j11_sigma2/bg_reach_training/bg_synapses.npz'
-    rhi_path: str = 'data_out/data_RHI_jitter_1_1_sigma_prop_2.npz'
 
     # set up monitors
     monitors = PopMonitor(populations=[S1, StrD1, SNr, VL, M1, SNc, ],
@@ -34,27 +37,25 @@ if __name__ == '__main__':
     # load pretrained model
     ann.load(pretrained_model_path)
 
-    # training data
-    if theta_vis == theta_proprio:
-        # load congruent data
-        df = merge_training_data(rhi_path=rhi_path,
-                                 cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
-                                 save_name='/RHI_j11_sigma2_training.parquet')
-        # normalise s1 inputs
-        df = normalize_list_column(df, column_name='r_output')
+    # load congruent data
+    df_train = pd.read_parquet('results/RHI_j11_sigma2/bg_reach_training/test_results.parquet')
+    # normalise s1 inputs
+    df_train = normalize_list_column(df_train, column_name='r_output')
 
-        # get inputs to specific angle
-        s1_inputs = df[df['theta'] == theta_proprio]['r_output'].tolist()
-    else:
-        df = merge_test_data(rhi_path=rhi_path,
-                             cpg_path='results/RHI_j11_sigma2/network_inverse_kinematic/best_inverse_results.npz',
-                             save_name='/RHI_j11_sigma2_test.parquet')
+    # load incongruent data
+    df_test = pd.read_parquet('results/RHI_j11_sigma2/bg_reach_testing/test_results.parquet')
+    # normalise s1 inputs
+    df_test = normalize_list_column(df_test, column_name='r_output')
 
-        # normalise s1 inputs
-        df = normalize_list_column(df, column_name='r_output')
+    # get data from a given row index
+    df_train = df_train.iloc[list(ids['training'])]
+    df_test = df_test.iloc[list(ids['test'])]
 
-        # get inputs to specific angle
-        s1_inputs = df[(df['theta'] == theta_proprio) & (df['vision_theta'] == theta_vis)]['r_output'].tolist()
+    # get s1 inputs
+    s1_inputs = df_train['r_output'].tolist()
+
+    # append test data s1 inputs
+    s1_inputs.extend(df_test['r_output'].tolist())
 
     for i, s1_input in enumerate(s1_inputs):
         save_folder: str = f'results/pretrained_rubber_hand_reach/trial_{i}/'
@@ -93,10 +94,6 @@ if __name__ == '__main__':
 
         with open(save_folder + 'm1_theta.txt', 'w') as f:
             f.write(str(m1_theta))
-
-        if n_samples is not None:
-            if i >= n_samples:
-                break
 
     # clear monitors
     m1_monitor.stop()
